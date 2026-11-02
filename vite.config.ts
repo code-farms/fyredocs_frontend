@@ -1,6 +1,6 @@
 /// <reference types="vitest/config" />
 import { defineConfig, loadEnv } from "vite";
-import react from "@vitejs/plugin-react-swc";
+import react from "@vitejs/plugin-react";
 import path from "path";
 
 // https://vitejs.dev/config/
@@ -63,7 +63,35 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     resolve: {
       alias: {
-        "@": path.resolve(__dirname, "./src"),
+        "@": path.resolve(import.meta.dirname, "./src"),
+      },
+    },
+    build: {
+      rolldownOptions: {
+        output: {
+          // Split stable vendor code out of the entry chunk. It keeps the entry
+          // under the 500 kB warning and, more usefully, lets browsers keep
+          // these cached across deploys: they only change on a dependency bump,
+          // while the app chunk's hash changes on every release.
+          codeSplitting: {
+            groups: [
+              {
+                name: "react-vendor",
+                test: /[\\/]node_modules[\\/](react|react-dom|react-router|react-router-dom|scheduler)[\\/]/,
+              },
+              {
+                name: "motion",
+                test: /[\\/]node_modules[\\/](framer-motion|motion-dom|motion-utils)[\\/]/,
+              },
+              // Docs-only syntax highlighter (loaded lazily by CodeBlock).
+              // Named so it doesn't surface as a mystery "http-*.js" chunk.
+              {
+                name: "shiki",
+                test: /[\\/]node_modules[\\/](shiki|@shikijs|oniguruma-to-es|regex|regex-recursion|regex-utilities)[\\/]/,
+              },
+            ],
+          },
+        },
       },
     },
     test: {

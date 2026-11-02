@@ -1,11 +1,59 @@
 import { useEffect, useState } from 'react';
-import { codeToHtml } from 'shiki';
+import { createHighlighterCore, type HighlighterCore } from 'shiki/core';
+import { createJavaScriptRegexEngine } from 'shiki/engine/javascript';
 import { Copy, Check } from 'lucide-react';
 
 interface CodeBlockProps {
   content: string;
   language?: string;
 }
+
+const THEME = 'github-dark';
+
+/**
+ * Docs label blocks with display names ('TypeScript', 'Bash', 'HTTP'), not
+ * shiki ids; passed through raw, every block failed to plain text. Anything
+ * unmapped (e.g. 'Directory', 'Environment') renders as plain text.
+ *
+ * 'HTTP' is deliberately unmapped: shiki's http grammar embeds graphql, which
+ * pulls in the javascript/jsx/tsx grammars (~550 kB) just to colour request
+ * lines and headers.
+ */
+const LANG_IDS: Record<string, string> = {
+  typescript: 'typescript',
+  ts: 'typescript',
+  bash: 'shellscript',
+  shell: 'shellscript',
+  sh: 'shellscript',
+  json: 'json',
+  go: 'go',
+  sql: 'sql',
+  dockerfile: 'docker',
+  docker: 'docker',
+  yaml: 'yaml',
+  yml: 'yaml',
+};
+
+const normalizeLang = (language?: string) => LANG_IDS[language?.trim().toLowerCase() ?? ''] ?? 'text';
+
+// Fine-grained on purpose: the full `shiki` bundle emitted ~250 grammar and
+// ~60 theme chunks plus a 600 kB oniguruma wasm. Only the languages above are
+// loaded, with the JS regex engine (no wasm). Created once, on first use.
+let highlighter: Promise<HighlighterCore> | null = null;
+const getHighlighter = () =>
+  (highlighter ??= createHighlighterCore({
+    themes: [import('@shikijs/themes/github-dark')],
+    langs: [
+      import('@shikijs/langs/typescript'),
+      import('@shikijs/langs/shellscript'),
+      import('@shikijs/langs/json'),
+      import('@shikijs/langs/go'),
+      import('@shikijs/langs/sql'),
+      import('@shikijs/langs/docker'),
+      import('@shikijs/langs/yaml'),
+    ],
+    engine: createJavaScriptRegexEngine(),
+  }));
 
 export const CodeBlock = ({ content, language }: CodeBlockProps) => {
   const [html, setHtml] = useState<string>('');
@@ -14,23 +62,20 @@ export const CodeBlock = ({ content, language }: CodeBlockProps) => {
   useEffect(() => {
     let cancelled = false;
 
-    codeToHtml(content.trim(), {
-      lang: language || 'text',
-      theme: 'github-dark',
-    })
-      .then((result) => {
+    getHighlighter()
+      .then((hl) => {
+        const code = content.trim();
+        let result: string;
+        try {
+          result = hl.codeToHtml(code, { lang: normalizeLang(language), theme: THEME });
+        } catch {
+          // A grammar that fails on this input still gets themed plain text.
+          result = hl.codeToHtml(code, { lang: 'text', theme: THEME });
+        }
         if (!cancelled) setHtml(result);
       })
-      .catch(() => {
-        // Fallback: if language isn't supported, try plaintext
-        if (!cancelled) {
-          codeToHtml(content.trim(), { lang: 'text', theme: 'github-dark' })
-            .then((result) => {
-              if (!cancelled) setHtml(result);
-            })
-            .catch(() => {});
-        }
-      });
+      // Highlighter failed to load: keep the unstyled <pre> fallback below.
+      .catch(() => {});
 
     return () => {
       cancelled = true;
