@@ -40,7 +40,6 @@ import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 import { ScrollToTop } from "@/components/common/ScrollToTop";
 import { CookieConsent } from "@/components/common/CookieConsent";
 import { Layout } from "@/components/layout/Layout";
-import { DocsLayout } from "@/components/layout/DocsLayout";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { UserLayout } from "@/components/layout/UserLayout";
 import { RoleLayout } from "@/components/layout/RoleLayout";
@@ -60,6 +59,12 @@ const CookiePage = lazy(() => import("./pages/CookiePage"));
 const AllToolsPage = lazy(() => import("./pages/AllToolsPage"));
 const DocsIndexPage = lazy(() => import("./pages/docs/DocsIndexPage"));
 const DocsPage = lazy(() => import("./pages/docs/DocsPage"));
+// Lazy on purpose: DocsLayout imports the developer-docs and mermaid configs
+// (~400 kB of source); a static import put all of it in the entry chunk that
+// every visitor downloads.
+const DocsLayout = lazy(() =>
+  import("@/components/layout/DocsLayout").then((m) => ({ default: m.DocsLayout }))
+);
 const DevDocsIndexPage = lazy(() => import("./pages/docs/DevDocsIndexPage"));
 const DevDocsPage = lazy(() => import("./pages/docs/DevDocsPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
