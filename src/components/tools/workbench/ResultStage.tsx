@@ -18,6 +18,13 @@ interface ResultStageProps {
 
 const formatFileSize = (bytes: number) => `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 
+/** Whole-percent reduction from original to output; null unless at least 1% smaller. */
+const savingsPercent = (originalSize: number | undefined, fileSize: number): number | null => {
+  if (!originalSize || fileSize <= 0 || fileSize >= originalSize) return null;
+  const pct = Math.round((1 - fileSize / originalSize) * 100);
+  return pct >= 1 ? pct : null;
+};
+
 /** "Available for N more days/hours" from job.result.expiresAt; null when unknown/expired. */
 const retentionCopy = (expiresAt: Date): string | null => {
   const ms = expiresAt.getTime() - Date.now();
@@ -69,6 +76,7 @@ export const ResultStage = ({ tool, job, onStartOver, onRetry, className }: Resu
   };
 
   const retention = retentionCopy(result.expiresAt);
+  const savings = savingsPercent(result.originalSize, result.fileSize);
   const nextTools = getToolsByNavGroup(tool.navGroup)
     .filter((t) => t.id !== tool.id)
     .slice(0, 3);
@@ -94,7 +102,14 @@ export const ResultStage = ({ tool, job, onStartOver, onRetry, className }: Resu
             <div className="min-w-0">
               <p className="truncate font-medium text-foreground">{result.fileName}</p>
               <Text variant="body-sm" tone="muted" as="span">
-                {formatFileSize(result.fileSize)}
+                {savings !== null && result.originalSize ? (
+                  <>
+                    {formatFileSize(result.originalSize)} → {formatFileSize(result.fileSize)} ·{' '}
+                    <span className="font-medium text-success">{savings}% smaller</span>
+                  </>
+                ) : (
+                  formatFileSize(result.fileSize)
+                )}
                 {retention && ` · ${retention}`}
               </Text>
             </div>

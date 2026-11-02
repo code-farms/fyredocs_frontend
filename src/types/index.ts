@@ -190,7 +190,10 @@ export interface JobProgress {
 export interface JobResult {
   downloadUrl: string;
   fileName: string;
+  /** Size of the downloadable output (falls back to the input total on older backends). */
   fileSize: number;
+  /** Total input size; set only when the output size is known, for showing savings. */
+  originalSize?: number;
   expiresAt: Date;
 }
 

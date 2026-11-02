@@ -32,8 +32,12 @@ export interface ApiJob {
   FileName?: string;
   outputFileName?: string;
   OutputFileName?: string;
+  /** Total INPUT size in bytes. */
   fileSize?: number | string;
   FileSize?: number | string;
+  /** Output size in bytes; sent by the single-job endpoint once completed. */
+  outputFileSize?: number | string;
+  OutputFileSize?: number | string;
   failureReason?: string;
   FailureReason?: string;
   toolType?: string;
@@ -152,7 +156,13 @@ export const mapApiJob = (
     state === 'completed' ? 'Completed' : state === 'failed' ? 'Failed' : 'Processing';
 
   const fileName = apiJob.outputFileName ?? apiJob.OutputFileName ?? apiJob.fileName ?? apiJob.FileName ?? 'output.pdf';
-  const fileSize = parseFileSize(apiJob.fileSize ?? apiJob.FileSize);
+  // fileSize is the INPUT total; prefer the real output size so the result
+  // card shows what the download will be. Keep the input as originalSize only
+  // when both are known, so the UI can show savings (e.g. after compression).
+  const inputSize = parseFileSize(apiJob.fileSize ?? apiJob.FileSize);
+  const outputSize = parseFileSize(apiJob.outputFileSize ?? apiJob.OutputFileSize);
+  const fileSize = outputSize > 0 ? outputSize : inputSize;
+  const originalSize = outputSize > 0 && inputSize > 0 ? inputSize : undefined;
   const downloadUrl = buildApiUrl(buildDownloadPath(toolId, id));
 
   const createdAt = parseDate(apiJob.createdAt ?? apiJob.CreatedAt, fallbackTime);
@@ -182,6 +192,7 @@ export const mapApiJob = (
             downloadUrl,
             fileName,
             fileSize,
+            originalSize,
             expiresAt,
           }
         : undefined,
