@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useFileUpload } from '../useFileUpload';
 import { ToolDefinition } from '@/types';
+import { versionPath } from '@/lib/apiVersion';
 
 // ============================================================================
 // Test doubles: XHR fake (presigned part PUTs) + fetch mock (JSON endpoints)
@@ -127,6 +128,14 @@ const makeParts = (uploadId: string, partNumbers: number[], refreshed = false) =
     url: presignedUrl(uploadId, partNumber, refreshed),
   }));
 
+// Upload routes as the client actually calls them: apiClient rewrites
+// /api/upload/... through versionPath (to /api/v1/... by default), so the mock
+// must match the same spelling or every call falls through to "Unexpected fetch".
+const UPLOAD = versionPath('/api/upload');
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const PARTS_RE = new RegExp(`${escapeRe(UPLOAD)}/([^/]+)/parts(\\?.*)?$`);
+const COMPLETE_RE = new RegExp(`${escapeRe(UPLOAD)}/([^/]+)/complete$`);
+
 const installFetchMock = () => {
   vi.stubGlobal(
     'fetch',
@@ -136,7 +145,7 @@ const installFetchMock = () => {
       const body = typeof init?.body === 'string' ? JSON.parse(init.body) : init?.body;
       fetchCalls.push({ url, method, body });
 
-      if (url.endsWith('/api/upload/init') && method === 'POST') {
+      if (url.endsWith(`${UPLOAD}/init`) && method === 'POST') {
         if (initResponder) return initResponder();
         const fileSize = (body as { fileSize: number }).fileSize;
         const uploadId = `up-${++uploadCounter}`;
@@ -156,7 +165,7 @@ const installFetchMock = () => {
         });
       }
 
-      const partsMatch = url.match(/\/api\/upload\/([^/]+)\/parts(\?.*)?$/);
+      const partsMatch = url.match(PARTS_RE);
       if (partsMatch && method === 'GET') {
         const uploadId = partsMatch[1];
         const parsed = new URL(url, 'http://localhost');
@@ -175,7 +184,7 @@ const installFetchMock = () => {
         });
       }
 
-      const completeMatch = url.match(/\/api\/upload\/([^/]+)\/complete$/);
+      const completeMatch = url.match(COMPLETE_RE);
       if (completeMatch && method === 'POST') {
         if (completeResponder) return completeResponder();
         return jsonResponse(200, {
@@ -513,7 +522,7 @@ describe('useFileUpload — multipart uploads', () => {
       expect(result.current.files[0].state).toBe('completed');
     });
 
-    const initCalls = fetchCalls.filter((c) => c.url.endsWith('/api/upload/init'));
+    const initCalls = fetchCalls.filter((c) => c.url.endsWith(`${UPLOAD}/init`));
     expect(initCalls).toHaveLength(2);
     expect(result.current.files[0].serverFileId).toBe('up-1');
   });
@@ -558,7 +567,7 @@ describe('useFileUpload — multipart uploads', () => {
     await waitFor(() => {
       const deletes = fetchCalls.filter((c) => c.method === 'DELETE');
       expect(deletes).toHaveLength(1);
-      expect(deletes[0].url).toContain('/api/upload/up-1');
+      expect(deletes[0].url).toContain(`${UPLOAD}/up-1`);
     });
   });
 });
