@@ -19,6 +19,7 @@ import { CommandPaletteProvider } from '@/components/common/CommandPalette';
 import { ActiveOrgProvider } from '@/components/app/ActiveOrgContext';
 import { OrgSwitcher } from '@/components/app/OrgSwitcher';
 import { NotificationBell } from '@/components/app/NotificationBell';
+import { notificationsEnabled } from '@/lib/features';
 import { useAuth } from '@/auth/useAuth';
 
 const UPLOAD_LINKS = [
@@ -99,7 +100,7 @@ function WorkspaceShell() {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <NotificationBell />
+            {notificationsEnabled && <NotificationBell />}
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
