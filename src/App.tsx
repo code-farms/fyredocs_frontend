@@ -45,6 +45,7 @@ import { AdminLayout } from "@/components/layout/AdminLayout";
 import { UserLayout } from "@/components/layout/UserLayout";
 import { RoleLayout } from "@/components/layout/RoleLayout";
 import { getAllTools } from "@/config/tools";
+import { signupEnabled } from "@/lib/features";
 
 const Index = lazy(() => import("./pages/Index"));
 // Single generic tool page — every registry tool routes through it.
@@ -125,7 +126,7 @@ const App = () => (
                     </Route>
                     <Route element={<PublicOnlyRoute redirectTo="/dashboard" />}>
                       <Route path="/signin" element={<SignIn />} />
-                      <Route path="/signup" element={<SignUp />} />
+                      <Route path="/signup" element={signupEnabled ? <SignUp /> : <Navigate to="/signin" replace />} />
                     </Route>
                     <Route element={<DocsLayout />}>
                       <Route path="/docs" element={<DocsIndexPage />} />

@@ -19,6 +19,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { AuthLayout } from '@/components/auth/AuthLayout';
+import { signupEnabled } from '@/lib/features';
 
 const signInSchema = z.object({
   email: z.string().email('Enter a valid email address'),
@@ -115,12 +116,14 @@ const SignIn = () => {
             </form>
           </Form>
 
-          <p className="mt-6 text-center text-body-sm text-muted-foreground">
-            Don&apos;t have an account?{' '}
-            <Link to="/signup" className="text-primary hover:underline">
-              Create one
-            </Link>
-          </p>
+          {signupEnabled && (
+            <p className="mt-6 text-center text-body-sm text-muted-foreground">
+              Don&apos;t have an account?{' '}
+              <Link to="/signup" className="text-primary hover:underline">
+                Create one
+              </Link>
+            </p>
+          )}
         </CardContent>
       </Card>
     </AuthLayout>

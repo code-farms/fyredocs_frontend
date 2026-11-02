@@ -14,6 +14,7 @@ import { useCommandPalette } from '@/components/common/CommandPalette';
 import { useAuth } from '@/auth/useAuth';
 import { ToolsMegaMenu } from './ToolsMegaMenu';
 import { MobileNav } from './MobileNav';
+import { signupEnabled } from '@/lib/features';
 
 const navLinkClass =
   'inline-flex h-10 items-center rounded-md px-4 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground';
@@ -62,9 +63,11 @@ export const Header = () => {
               <Button variant="ghost" asChild>
                 <Link to="/signin">Login</Link>
               </Button>
-              <Button asChild>
-                <Link to="/signup">Sign up</Link>
-              </Button>
+              {signupEnabled && (
+                <Button asChild>
+                  <Link to="/signup">Sign up</Link>
+                </Button>
+              )}
             </div>
           )}
 

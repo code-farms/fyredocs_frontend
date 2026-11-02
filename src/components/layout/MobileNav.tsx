@@ -14,6 +14,7 @@ import { getAllTools } from '@/config/tools';
 import { filterTools } from '@/lib/toolSearch';
 import { cn } from '@/lib/utils';
 import type { ToolDefinition } from '@/types';
+import { signupEnabled } from '@/lib/features';
 
 const PAGE_LINKS = [
   { label: 'Pricing', href: '/pricing' },
@@ -182,11 +183,13 @@ export function MobileNav() {
                     Login
                   </Link>
                 </Button>
-                <Button asChild>
-                  <Link to="/signup" onClick={close}>
-                    Sign up
-                  </Link>
-                </Button>
+                {signupEnabled && (
+                  <Button asChild>
+                    <Link to="/signup" onClick={close}>
+                      Sign up
+                    </Link>
+                  </Button>
+                )}
               </div>
             )}
           </div>

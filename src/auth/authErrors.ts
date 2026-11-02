@@ -15,6 +15,7 @@
 export type AuthErrorCode =
   | 'INVALID_CREDENTIALS'
   | 'USER_ALREADY_EXISTS'
+  | 'SIGNUP_DISABLED'
   | 'TOKEN_EXPIRED'
   | 'UNAUTHORIZED'
   | 'AUTH_UNAUTHORIZED'
@@ -76,6 +77,8 @@ const userSafeMessage = (code: AuthErrorCode, fallback: string) => {
       return 'Invalid email or password.';
     case 'USER_ALREADY_EXISTS':
       return 'An account with this email already exists.';
+    case 'SIGNUP_DISABLED':
+      return 'New account registration is currently closed.';
     case 'TOKEN_EXPIRED':
       return 'Your session has expired. Please sign in again.';
     case 'UNAUTHORIZED':
