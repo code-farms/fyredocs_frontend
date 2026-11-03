@@ -17,9 +17,11 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { useAuth } from '@/auth/useAuth';
+import { useCloseMobileSidebarOnNavigate } from '@/hooks/useCloseMobileSidebarOnNavigate';
 import { APP_NAV } from '@/components/app/appNav';
 
 export function AppSidebar() {
+  useCloseMobileSidebarOnNavigate();
   const { pathname, search } = useLocation();
   const current = `${pathname}${search}`;
   const { user } = useAuth();

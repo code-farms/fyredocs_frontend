@@ -16,9 +16,11 @@ import {
 } from '@/components/ui/sidebar';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { useAuth } from '@/auth/useAuth';
+import { useCloseMobileSidebarOnNavigate } from '@/hooks/useCloseMobileSidebarOnNavigate';
 import { ADMIN_NAV_GROUPS, ADMIN_SECTIONS } from '@/components/admin/adminNav';
 
 export function AdminSidebar() {
+  useCloseMobileSidebarOnNavigate();
   const { pathname } = useLocation();
   const [searchParams] = useSearchParams();
   const days = searchParams.get('days');
