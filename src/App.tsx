@@ -10,6 +10,10 @@
  * shift when a chunk lands. Adding a non-lazy route silently undoes this for
  * everyone.
  *
+ * Routes use lazyWithReload (src/lib/lazyWithReload.ts), not bare React.lazy:
+ * a deploy deletes the previous build's chunks, and plain lazy leaves a tab
+ * opened before the deploy stuck on "Failed to fetch dynamically imported module".
+ *
  * NO VIRTUALIZATION ANYWHERE, by choice. Long lists are bounded by pagination
  * instead — see components/admin/DataTable.tsx. That keeps every list keyboard-
  * and screen-reader-navigable and Ctrl-F-able, which windowing breaks. Reach for
@@ -25,7 +29,7 @@
  * crash can still offer navigation, and inside auth so the boundary's own UI can
  * read session state.
  */
-import { lazy } from "react";
+import { lazyWithReload } from "@/lib/lazyWithReload";
 import { HelmetProvider } from "react-helmet-async";
 import { MotionConfig } from "framer-motion";
 import { Toaster } from "@/components/ui/toaster";
@@ -46,47 +50,47 @@ import { RoleLayout } from "@/components/layout/RoleLayout";
 import { getAllTools } from "@/config/tools";
 import { signupEnabled } from "@/lib/features";
 
-const Index = lazy(() => import("./pages/Index"));
+const Index = lazyWithReload(() => import("./pages/Index"));
 // Single generic tool page — every registry tool routes through it.
-const ToolPage = lazy(() => import("./pages/ToolPage"));
-const AboutPage = lazy(() => import("./pages/AboutPage"));
-const BlogPage = lazy(() => import("./pages/BlogPage"));
-const PricingPage = lazy(() => import("./pages/PricingPage"));
-const ContactPage = lazy(() => import("./pages/ContactPage"));
-const PrivacyPage = lazy(() => import("./pages/PrivacyPage"));
-const TermsPage = lazy(() => import("./pages/TermsPage"));
-const CookiePage = lazy(() => import("./pages/CookiePage"));
-const AllToolsPage = lazy(() => import("./pages/AllToolsPage"));
-const DocsIndexPage = lazy(() => import("./pages/docs/DocsIndexPage"));
-const DocsPage = lazy(() => import("./pages/docs/DocsPage"));
+const ToolPage = lazyWithReload(() => import("./pages/ToolPage"));
+const AboutPage = lazyWithReload(() => import("./pages/AboutPage"));
+const BlogPage = lazyWithReload(() => import("./pages/BlogPage"));
+const PricingPage = lazyWithReload(() => import("./pages/PricingPage"));
+const ContactPage = lazyWithReload(() => import("./pages/ContactPage"));
+const PrivacyPage = lazyWithReload(() => import("./pages/PrivacyPage"));
+const TermsPage = lazyWithReload(() => import("./pages/TermsPage"));
+const CookiePage = lazyWithReload(() => import("./pages/CookiePage"));
+const AllToolsPage = lazyWithReload(() => import("./pages/AllToolsPage"));
+const DocsIndexPage = lazyWithReload(() => import("./pages/docs/DocsIndexPage"));
+const DocsPage = lazyWithReload(() => import("./pages/docs/DocsPage"));
 // Lazy on purpose: DocsLayout imports the developer-docs and mermaid configs
 // (~400 kB of source); a static import put all of it in the entry chunk that
 // every visitor downloads.
-const DocsLayout = lazy(() =>
+const DocsLayout = lazyWithReload(() =>
   import("@/components/layout/DocsLayout").then((m) => ({ default: m.DocsLayout }))
 );
-const DevDocsIndexPage = lazy(() => import("./pages/docs/DevDocsIndexPage"));
-const DevDocsPage = lazy(() => import("./pages/docs/DevDocsPage"));
-const NotFound = lazy(() => import("./pages/NotFound"));
-const MyFilesPage = lazy(() => import("./pages/MyFilesPage"));
-const Dashboard = lazy(() => import("./pages/Dashboard"));
-const DocumentsPage = lazy(() => import("./pages/app/DocumentsPage"));
-const TrashPage = lazy(() => import("./pages/app/TrashPage"));
-const MembersPage = lazy(() => import("./pages/app/MembersPage"));
-const ExportsPage = lazy(() => import("./pages/app/ExportsPage"));
-const SignIn = lazy(() => import("./pages/auth/SignIn"));
-const ActivityPage = lazy(() => import("./pages/ActivityPage"));
-const SignUp = lazy(() => import("./pages/auth/SignUp"));
-const BusinessPage = lazy(() => import("./pages/admin/BusinessPage"));
-const GrowthPage = lazy(() => import("./pages/admin/GrowthPage"));
-const EngagementPage = lazy(() => import("./pages/admin/EngagementPage"));
-const ReliabilityPage = lazy(() => import("./pages/admin/ReliabilityPage"));
-const SystemPage = lazy(() => import("./pages/admin/SystemPage"));
-const NatsPage = lazy(() => import("./pages/admin/NatsPage"));
-const ServerPerformancePage = lazy(() => import("./pages/admin/ServerPerformancePage"));
-const ApiPerformancePage = lazy(() => import("./pages/admin/ApiPerformancePage"));
-const ObservabilityPage = lazy(() => import("./pages/admin/ObservabilityPage"));
-const ActivityAuditPage = lazy(() => import("./pages/admin/ActivityAuditPage"));
+const DevDocsIndexPage = lazyWithReload(() => import("./pages/docs/DevDocsIndexPage"));
+const DevDocsPage = lazyWithReload(() => import("./pages/docs/DevDocsPage"));
+const NotFound = lazyWithReload(() => import("./pages/NotFound"));
+const MyFilesPage = lazyWithReload(() => import("./pages/MyFilesPage"));
+const Dashboard = lazyWithReload(() => import("./pages/Dashboard"));
+const DocumentsPage = lazyWithReload(() => import("./pages/app/DocumentsPage"));
+const TrashPage = lazyWithReload(() => import("./pages/app/TrashPage"));
+const MembersPage = lazyWithReload(() => import("./pages/app/MembersPage"));
+const ExportsPage = lazyWithReload(() => import("./pages/app/ExportsPage"));
+const SignIn = lazyWithReload(() => import("./pages/auth/SignIn"));
+const ActivityPage = lazyWithReload(() => import("./pages/ActivityPage"));
+const SignUp = lazyWithReload(() => import("./pages/auth/SignUp"));
+const BusinessPage = lazyWithReload(() => import("./pages/admin/BusinessPage"));
+const GrowthPage = lazyWithReload(() => import("./pages/admin/GrowthPage"));
+const EngagementPage = lazyWithReload(() => import("./pages/admin/EngagementPage"));
+const ReliabilityPage = lazyWithReload(() => import("./pages/admin/ReliabilityPage"));
+const SystemPage = lazyWithReload(() => import("./pages/admin/SystemPage"));
+const NatsPage = lazyWithReload(() => import("./pages/admin/NatsPage"));
+const ServerPerformancePage = lazyWithReload(() => import("./pages/admin/ServerPerformancePage"));
+const ApiPerformancePage = lazyWithReload(() => import("./pages/admin/ApiPerformancePage"));
+const ObservabilityPage = lazyWithReload(() => import("./pages/admin/ObservabilityPage"));
+const ActivityAuditPage = lazyWithReload(() => import("./pages/admin/ActivityAuditPage"));
 
 const queryClient = new QueryClient();
 

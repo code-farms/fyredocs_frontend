@@ -1,4 +1,5 @@
-import { lazy, Suspense } from 'react';
+import { Suspense } from 'react';
+import { lazyWithReload } from '@/lib/lazyWithReload';
 import type { DocSection } from '@/config/docs';
 import { Lightbulb, AlertTriangle, Hash } from 'lucide-react';
 import { Heading } from '@/components/ui/typography';
@@ -6,7 +7,7 @@ import { slugifyHeading } from '@/lib/docsNavigation';
 import { toast } from '@/lib/toast';
 import { CodeBlock } from './CodeBlock';
 
-const SectionMermaid = lazy(() =>
+const SectionMermaid = lazyWithReload(() =>
   import('./SectionMermaid').then((mod) => ({ default: mod.SectionMermaid })),
 );
 

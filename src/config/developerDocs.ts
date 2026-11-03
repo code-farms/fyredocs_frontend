@@ -1751,12 +1751,12 @@ export const developerDocs: DevDocEntry[] = [
       },
       {
         heading: 'Routing and lazy loading',
-        content: 'Every page is loaded via React.lazy() and wrapped in a Suspense boundary that shows a PageSkeleton while the chunk loads. This keeps the initial bundle small — only the landing page code is loaded on first visit. Route transitions use Framer Motion AnimatePresence with a 200ms fade. The AnimatedRoutes component wraps all Routes in a motion.div keyed by location.pathname.',
+        content: 'Every page is loaded via lazyWithReload() (src/lib/lazyWithReload.ts, a React.lazy wrapper) and wrapped in a Suspense boundary that shows a PageSkeleton while the chunk loads. This keeps the initial bundle small — only the landing page code is loaded on first visit. Each deploy deletes the previous build\'s hashed chunks, so a tab opened before a deploy would fail on its next route; lazyWithReload reloads the page once (guarded by a sessionStorage flag) to pick up the new index.html, and rethrows to the ErrorBoundary if the chunk is still missing. Route transitions use Framer Motion AnimatePresence with a 200ms fade. The AnimatedRoutes component wraps all Routes in a motion.div keyed by location.pathname.',
         type: 'paragraph',
       },
       {
         heading: 'Route example from App.tsx',
-        content: 'const MergePage = lazy(() => import("./pages/MergePage"));\nconst SplitPage = lazy(() => import("./pages/SplitPage"));\n// ... all pages are lazy-loaded\n\n<Suspense fallback={<PageSkeleton />}>\n  <AnimatedRoutes />\n</Suspense>',
+        content: 'const MergePage = lazyWithReload(() => import("./pages/MergePage"));\nconst SplitPage = lazyWithReload(() => import("./pages/SplitPage"));\n// ... all pages are lazy-loaded\n\n<Suspense fallback={<PageSkeleton />}>\n  <AnimatedRoutes />\n</Suspense>',
         type: 'code',
         language: 'TypeScript',
       },

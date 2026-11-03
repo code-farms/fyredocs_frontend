@@ -1,4 +1,5 @@
-import { Suspense, lazy, ComponentType, RefObject } from 'react';
+import { Suspense, ComponentType, RefObject } from 'react';
+import { lazyWithReload } from '@/lib/lazyWithReload';
 import { UseFormReturn } from 'react-hook-form';
 import { Trash2, Plus } from 'lucide-react';
 import { FileUpload, ToolDefinition, ToolOptions } from '@/types';
@@ -17,8 +18,8 @@ import { BespokeConfigureProps } from '../bespoke/types';
 import { PlanLimitBanner } from './PlanLimitBanner';
 
 // Lazy bespoke bodies — keeps the canvas/annotation code out of the main chunk.
-const SignPdfConfigure = lazy(() => import('../bespoke/SignPdfConfigure'));
-const EditPdfConfigure = lazy(() => import('../bespoke/EditPdfConfigure'));
+const SignPdfConfigure = lazyWithReload(() => import('../bespoke/SignPdfConfigure'));
+const EditPdfConfigure = lazyWithReload(() => import('../bespoke/EditPdfConfigure'));
 
 const BESPOKE_BODIES: Record<'sign-pdf' | 'edit-pdf', ComponentType<BespokeConfigureProps>> = {
   'sign-pdf': SignPdfConfigure,
