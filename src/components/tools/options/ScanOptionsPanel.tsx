@@ -9,7 +9,7 @@ import { OCR_LANGUAGES } from './schemas';
 
 export const ScanOptionsPanel = ({ form }: OptionsPanelProps) => {
   const ocrEnabled = Boolean(form.watch('ocr'));
-  const language = (form.watch('language') as string) ?? 'en';
+  const language = (form.watch('language') as string) ?? 'eng';
 
   return (
     <div className="rounded-xl border bg-card p-6">

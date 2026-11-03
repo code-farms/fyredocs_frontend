@@ -178,7 +178,7 @@ describe('ToolWorkbench — scan to pdf options', () => {
     await waitFor(() => {
       expect(createJobMock).toHaveBeenCalledWith('scan-to-pdf', ['srv-img'], {
         ocr: true,
-        language: 'en',
+        language: 'eng',
       });
     });
   });

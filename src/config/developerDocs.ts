@@ -835,7 +835,7 @@ export const developerDocs: DevDocEntry[] = [
       },
       {
         heading: 'OCR: Tesseract configuration',
-        content: 'The OCR tool accepts a language parameter (ISO 639-3 codes: eng, fra, deu, spa, etc.) and a dpi option (150, 200, 300, 600). Higher DPI improves recognition accuracy but increases processing time. Default is language: "eng" and dpi: 300.',
+        content: 'The OCR tool accepts a language parameter (tesseract codes: eng, hin, or eng+hin for mixed English/Hindi) and a dpi option (150, 200, 300, 600). Higher DPI improves recognition accuracy but increases processing time. Default is language: "eng" and dpi: 300.',
         type: 'paragraph',
       },
       {
@@ -1318,7 +1318,7 @@ export const developerDocs: DevDocEntry[] = [
           headers: ['Operation', 'Engine', 'Timeout', 'Notes'],
           rows: [
             ['compress-pdf', 'Ghostscript', '10 min', 'Presets: /screen (72dpi), /ebook (150dpi), /printer (300dpi), /prepress (300+dpi)'],
-            ['ocr-pdf', 'Tesseract', '10 min', 'Languages: eng, fra, deu, spa, etc. DPI: 150-600'],
+            ['ocr-pdf', 'Tesseract', '10 min', 'Languages: eng, hin, eng+hin. DPI: 150-600'],
             ['repair-pdf', 'pdfcpu', '5 min', 'Runs validation first, then attempts structural repair'],
           ],
         },

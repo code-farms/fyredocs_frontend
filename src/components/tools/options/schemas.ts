@@ -148,7 +148,7 @@ export const PANEL_SCHEMAS: Record<OptionsPanelId, z.ZodTypeAny> = {
 export const PANEL_DEFAULTS: Record<OptionsPanelId, Record<string, unknown>> = {
   split: { mode: 'all', range: '', span: 2 },
   compress: { quality: 'medium' },
-  ocr: { language: 'en', dpi: '' },
+  ocr: { language: 'eng', dpi: '' },
   rotate: { rotation: 90, applyToPages: 'all' },
   watermark: {
     type: 'text',
@@ -165,20 +165,17 @@ export const PANEL_DEFAULTS: Record<OptionsPanelId, Record<string, unknown>> = {
   password: { password: '', confirmPassword: '' },
   unlock: { password: '' },
   'page-numbers': { position: 'bc', startNumber: 1, fontSize: 12, format: '{n}' },
-  scan: { ocr: false, language: 'en' },
+  scan: { ocr: false, language: 'eng' },
   'convert-info': {},
 };
 
-/** Shared OCR language list (OcrTool/ScanToPdfTool used the same values). */
+/**
+ * Shared OCR language list (OcrTool/ScanToPdfTool used the same values).
+ * Values are tesseract codes sent unchanged — job-service's allowlists accept
+ * only eng, hin and the eng+hin mixed mode, so a 2-letter code would 400.
+ */
 export const OCR_LANGUAGES = [
-  { value: 'en', label: 'English' },
-  { value: 'es', label: 'Spanish' },
-  { value: 'fr', label: 'French' },
-  { value: 'de', label: 'German' },
-  { value: 'it', label: 'Italian' },
-  { value: 'pt', label: 'Portuguese' },
-  { value: 'zh', label: 'Chinese' },
-  { value: 'ja', label: 'Japanese' },
-  { value: 'ko', label: 'Korean' },
-  { value: 'ar', label: 'Arabic' },
+  { value: 'eng', label: 'English' },
+  { value: 'hin', label: 'Hindi' },
+  { value: 'eng+hin', label: 'English + Hindi' },
 ] as const;

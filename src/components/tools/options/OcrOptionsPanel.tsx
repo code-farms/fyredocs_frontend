@@ -9,7 +9,7 @@ const DPI_OPTIONS = ['150', '300', '400', '600'];
 const DPI_AUTO = 'auto';
 
 export const OcrOptionsPanel = ({ form }: OptionsPanelProps) => {
-  const language = (form.watch('language') as string) ?? 'en';
+  const language = (form.watch('language') as string) ?? 'eng';
   const dpi = (form.watch('dpi') as string) || '';
 
   return (

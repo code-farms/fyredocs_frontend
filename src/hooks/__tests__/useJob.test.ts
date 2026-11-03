@@ -63,8 +63,8 @@ describe('normalizeOptions', () => {
     });
 
     it('returns ocr and language when both provided', () => {
-      const result = normalizeOptions('scan-to-pdf', { ocr: true, language: 'fr' });
-      expect(result).toEqual({ ocr: true, language: 'fr' });
+      const result = normalizeOptions('scan-to-pdf', { ocr: true, language: 'hin' });
+      expect(result).toEqual({ ocr: true, language: 'hin' });
     });
   });
 
@@ -82,8 +82,8 @@ describe('normalizeOptions', () => {
 
   describe('ocr', () => {
     it('returns language and dpi', () => {
-      const result = normalizeOptions('ocr', { language: 'fr', dpi: '600' });
-      expect(result).toEqual({ language: 'fr', dpi: '600' });
+      const result = normalizeOptions('ocr', { language: 'eng+hin', dpi: '600' });
+      expect(result).toEqual({ language: 'eng+hin', dpi: '600' });
     });
 
     it('defaults to eng with no dpi when not specified', () => {

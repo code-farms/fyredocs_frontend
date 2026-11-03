@@ -113,7 +113,7 @@ export const TOOLS: Record<ToolId, ToolDefinition> = {
     navGroup: 'organize',
     keywords: ['scanner', 'photo', 'image', 'ocr'],
     optionsPanel: 'scan',
-    defaultOptions: { ocr: false, language: 'en' },
+    defaultOptions: { ocr: false, language: 'eng' },
     actionLabel: (count) => (count > 1 ? `Convert ${count} scans` : 'Convert to PDF'),
   },
 
@@ -153,7 +153,7 @@ export const TOOLS: Record<ToolId, ToolDefinition> = {
     navGroup: 'optimize',
     keywords: ['text recognition', 'searchable', 'extract text'],
     optionsPanel: 'ocr',
-    defaultOptions: { language: 'en' },
+    defaultOptions: { language: 'eng' },
     supportsBatch: true,
     popular: true,
     actionLabel: (count) => (count > 1 ? `Run OCR on ${count} PDFs` : 'Run OCR'),
