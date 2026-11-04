@@ -36,3 +36,34 @@ describe('ResultStage warnings', () => {
     expect(screen.queryByText(/Glare covered text/)).toBeNull();
   });
 });
+
+describe('ResultStage failure', () => {
+  const failed = (toolId: string, code: string): Job => ({
+    ...job(),
+    toolId: toolId as Job['toolId'],
+    state: 'failed',
+    result: undefined,
+    error: { code, message: 'Something failed', isRetryable: true },
+  });
+  const toolFor = (id: string) => getAllTools().find((t) => t.id === id)!;
+
+  it('suggests Repair PDF for a conversion failure on a PDF tool', () => {
+    render(<ResultStage tool={toolFor('compress')} job={failed('compress', 'CONVERSION_FAILED')} onStartOver={vi.fn()} onRetry={vi.fn()} />);
+    expect(screen.getByRole('link', { name: /Try Repair PDF/ })).toHaveAttribute('href', '/repair-pdf');
+  });
+
+  it('does not suggest Repair for unlock, image tools or other failures', () => {
+    const { unmount } = render(
+      <ResultStage tool={toolFor('unlock-pdf')} job={failed('unlock-pdf', 'CONVERSION_FAILED')} onStartOver={vi.fn()} onRetry={vi.fn()} />
+    );
+    expect(screen.queryByRole('link', { name: /Try Repair PDF/ })).toBeNull();
+    unmount();
+    const second = render(
+      <ResultStage tool={toolFor('scan-to-pdf')} job={failed('scan-to-pdf', 'CONVERSION_FAILED')} onStartOver={vi.fn()} onRetry={vi.fn()} />
+    );
+    expect(screen.queryByRole('link', { name: /Try Repair PDF/ })).toBeNull();
+    second.unmount();
+    render(<ResultStage tool={toolFor('compress')} job={failed('compress', 'FAILED')} onStartOver={vi.fn()} onRetry={vi.fn()} />);
+    expect(screen.queryByRole('link', { name: /Try Repair PDF/ })).toBeNull();
+  });
+});

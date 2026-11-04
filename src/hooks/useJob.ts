@@ -37,8 +37,7 @@ import { Job, JobState, PasswordProtectOptions, ScanToPdfOptions, SplitOptions, 
 import { apiJson, apiRequest, buildApiUrl } from '@/lib/apiClient';
 import { buildDownloadPath, buildJobPath } from '@/lib/toolApi';
 import { setGuestToken } from '@/lib/guestToken';
-import { ApiJob, mapApiJob, mapStatus } from '@/lib/jobMapper';
-import { friendlyError } from '@/lib/friendlyError';
+import { ApiJob, jobFailureError, mapApiJob, mapStatus, requestFailureMessage } from '@/lib/jobMapper';
 import { setJobWorkspaceHint } from '@/lib/documentsApi';
 import { getActiveOrgId } from '@/components/app/ActiveOrgContext';
 import { track } from '@/lib/activity';
@@ -303,9 +302,7 @@ export const useJob = ({
         } catch (error) {
           attemptsRef.current += 1;
           if (attemptsRef.current >= maxPollingAttempts) {
-            const message =
-              friendlyError(error instanceof Error ? error.message : undefined) ??
-              'Failed to poll job status.';
+            const message = requestFailureMessage(error, 'Failed to poll job status.');
             setJob((prev) =>
               prev
                 ? {
@@ -421,14 +418,7 @@ export const useJob = ({
                       expiresAt: prev.result?.expiresAt ?? new Date(),
                     }
                   : prev.result,
-              error:
-                state === 'failed'
-                  ? {
-                      code: 'FAILED',
-                      message: friendlyError(data.failureReason) || 'The job failed to complete.',
-                      isRetryable: true,
-                    }
-                  : prev.error,
+              error: state === 'failed' ? jobFailureError(toolId, data.failureReason) : prev.error,
             };
           });
 
@@ -456,7 +446,7 @@ export const useJob = ({
           if (status === 'failed') {
             sseTerminalRef.current = true;
             stopPolling();
-            const message = friendlyError(data.failureReason) || 'The job failed to complete.';
+            const message = jobFailureError(toolId, data.failureReason).message;
             trackTerminal(jobId, toolId, 'failed', { failureReason: message });
             onError?.(message);
             return;
@@ -558,9 +548,7 @@ export const useJob = ({
           if (activeOrg) void setJobWorkspaceHint(mappedJob.id, activeOrg);
           startSSE(toolId, mappedJob.id, normalizedIds, options);
         } catch (error) {
-          const message =
-            friendlyError(error instanceof Error ? error.message : undefined) ??
-            'Failed to create job.';
+          const message = requestFailureMessage(error, 'Failed to create job.');
           // No server job id exists on a create failure, so no correlationId.
           track({
             eventType: ACTIVITY_EVENTS.jobFailed,

@@ -11,11 +11,14 @@ type ApiRequestOptions = RequestInit & {
  */
 export class ApiHttpError extends Error {
   status: number;
+  /** The envelope's `error.code` (e.g. FILE_TOO_LARGE), when the body had one. */
+  code?: string;
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, code?: string) {
     super(message);
     this.name = 'ApiHttpError';
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -65,7 +68,8 @@ export const buildApiUrl = (path: string) => {
 };
 
 /**
- * Normalize any backend error response into a single human-readable string.
+ * Normalize any backend error response into one message plus the envelope's
+ * `error.code` when present (the code drives lib/jobErrors.ts sentences).
  *
  * This is layer 1 of the app's error pipeline, and the reason it looks
  * repetitive is that the backend genuinely emits four shapes — the standard
@@ -74,18 +78,22 @@ export const buildApiUrl = (path: string) => {
  * real endpoint produces it; deleting one silently degrades those errors to
  * "Request failed with 500".
  *
- * The message here is still technical. Layer 2 is ApiHttpError (adds status so
+ * The message here is still technical. Layer 2 is ApiHttpError (adds status and code so
  * callers can branch — 404 on an upload means the session expired). Layer 3 is
  * friendlyError() in lib/friendlyError.ts, which is what maps this to prose fit
  * for a user and strips tool names like pdfcpu or ghostscript. Never render this
  * string directly in the UI.
  */
-const parseErrorMessage = async (response: Response) => {
+const parseError = async (response: Response): Promise<{ message: string; code?: string }> => {
   const contentType = response.headers.get('content-type') ?? '';
   let message = response.statusText || `Request failed with ${response.status}`;
+  let code: string | undefined;
 
   if (contentType.includes('application/json')) {
     const data = await response.json().catch(() => null);
+    if (typeof data?.error?.code === 'string' && data.error.code) {
+      code = data.error.code;
+    }
     // Handle API error format: { error: { code: string, details: string }, message: string }
     if (data?.error?.details) {
       message = data.error.details;
@@ -103,7 +111,12 @@ const parseErrorMessage = async (response: Response) => {
     }
   }
 
-  return message;
+  return { message, code };
+};
+
+const httpError = async (response: Response) => {
+  const { message, code } = await parseError(response);
+  return new ApiHttpError(message, response.status, code);
 };
 
 /** Wrap HeadersInit in a Headers instance so downstream mutation is safe. */
@@ -191,17 +204,17 @@ export const apiRequest = async <T>(
       return apiRequest<T>(path, { ...options, skipRefresh: true });
     }
     window.dispatchEvent(new CustomEvent('fyredocs:unauthorized'));
-    throw new ApiHttpError(await parseErrorMessage(response), response.status);
+    throw await httpError(response);
   }
 
   // 403 = forbidden (not an expired token issue)
   if (response.status === 403 && !skipRefresh) {
     window.dispatchEvent(new CustomEvent('fyredocs:unauthorized'));
-    throw new ApiHttpError(await parseErrorMessage(response), response.status);
+    throw await httpError(response);
   }
 
   if (!response.ok) {
-    throw new ApiHttpError(await parseErrorMessage(response), response.status);
+    throw await httpError(response);
   }
 
   if (response.status === 204) {

@@ -2045,7 +2045,7 @@ export const developerDocs: DevDocEntry[] = [
       },
       {
         heading: 'Error response parsing',
-        content: 'The parseErrorMessage function handles three backend error formats: (1) { error: { details: "..." } } — uses error.details, (2) { error: { message: "..." } } or { error: "string" } — uses the error message/string, (3) { message: "..." } — uses the top-level message. For non-JSON responses, the raw text body is used. Fallback is the HTTP statusText.',
+        content: 'The parseError function (which also keeps error.code on ApiHttpError) handles three backend error formats: (1) { error: { details: "..." } } — uses error.details, (2) { error: { message: "..." } } or { error: "string" } — uses the error message/string, (3) { message: "..." } — uses the top-level message. For non-JSON responses, the raw text body is used. Fallback is the HTTP statusText.',
         type: 'paragraph',
       },
       {

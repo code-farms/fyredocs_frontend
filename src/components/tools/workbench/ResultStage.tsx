@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { CheckCircle2, Download, RotateCcw, ArrowRight, TriangleAlert } from 'lucide-react';
+import { CheckCircle2, Download, RotateCcw, ArrowRight, TriangleAlert, Wrench } from 'lucide-react';
 import { Job, ToolDefinition } from '@/types';
 import { warningMessages } from '@/lib/jobWarnings';
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,7 @@ import { ErrorState } from '@/components/common/ErrorState';
 import { ToolIcon } from '@/components/icons/ToolIcon';
 import { Text } from '@/components/ui/typography';
 import { getToolsByNavGroup, toolNavName } from '@/config/navigation';
+import { getToolById } from '@/config/tools';
 import { cn } from '@/lib/utils';
 
 interface ResultStageProps {
@@ -42,6 +43,15 @@ const retentionCopy = (expiresAt: Date): string | null => {
   return `Available for ${minutes} more ${minutes === 1 ? 'minute' : 'minutes'}`;
 };
 
+/** Tools that never get the Repair suggestion: repair itself, and unlock, whose failure is the password. */
+const NO_REPAIR_HINT = new Set(['repair-pdf', 'unlock-pdf']);
+
+/** A generic processing failure on a PDF input may be a damaged file — Repair PDF is worth a try. */
+const suggestsRepair = (tool: ToolDefinition, job: Job) =>
+  job.error?.code === 'CONVERSION_FAILED' &&
+  !NO_REPAIR_HINT.has(tool.id) &&
+  tool.acceptedFileTypes.some((t) => t === '.pdf' || t === 'application/pdf');
+
 export const ResultStage = ({ tool, job, onStartOver, onRetry, className }: ResultStageProps) => {
   // Failure → ErrorState with retry when retryable.
   if (job.state === 'failed') {
@@ -53,7 +63,15 @@ export const ResultStage = ({ tool, job, onStartOver, onRetry, className }: Resu
           onRetry={job.error?.isRetryable ? onRetry : undefined}
           retryLabel="Retry"
         />
-        <div className="px-6 pb-6">
+        <div className="space-y-2 px-6 pb-6">
+          {suggestsRepair(tool, job) && (
+            <Button variant="outline" className="w-full" asChild>
+              <Link to={getToolById('repair-pdf')?.route ?? '/repair-pdf'}>
+                <Wrench aria-hidden />
+                Try Repair PDF on this file
+              </Link>
+            </Button>
+          )}
           <Button variant="ghost" className="w-full" onClick={onStartOver}>
             <RotateCcw aria-hidden />
             Start over with new files

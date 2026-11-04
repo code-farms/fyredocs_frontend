@@ -1,5 +1,6 @@
-import { Job, JobState, JobWarning, ToolId, ToolOptions } from '@/types';
-import { buildApiUrl } from '@/lib/apiClient';
+import { Job, JobError, JobState, JobWarning, ToolId, ToolOptions } from '@/types';
+import { ApiHttpError, buildApiUrl } from '@/lib/apiClient';
+import { humanizeJobFailure, isConversionFailure } from '@/lib/jobErrors';
 import { buildDownloadPath } from '@/lib/toolApi';
 import { friendlyError } from '@/lib/friendlyError';
 
@@ -62,6 +63,34 @@ export const parseWarnings = (raw: unknown): JobWarning[] => {
     const code = (w as { code?: unknown })?.code;
     return Number.isInteger(page) && page > 0 && typeof code === 'string' ? [{ page, code }] : [];
   });
+};
+
+/**
+ * A worker failure as the UI shows it. friendlyError first (legacy "[CODE] x"
+ * rows, technical strings), then jobErrors for the per-tool sentence — e.g.
+ * unlock-pdf's generic failure reads as the password sentence. The code is
+ * CONVERSION_FAILED when the worker said "may be corrupted…", which is what
+ * ResultStage keys its Repair PDF suggestion on.
+ */
+export const jobFailureError = (toolId: ToolId, reason: string | undefined | null): JobError => {
+  const clean = friendlyError(reason);
+  return {
+    code: isConversionFailure(clean) ? 'CONVERSION_FAILED' : 'FAILED',
+    message: humanizeJobFailure(undefined, clean, toolId),
+    isRetryable: true,
+  };
+};
+
+/**
+ * Message for a failed API call around a job (create, poll). A backend
+ * error.code wins (FILE_TOO_LARGE, RATE_LIMIT_EXCEEDED…); without one the
+ * existing friendlyError text stays, so network failures read as before.
+ */
+export const requestFailureMessage = (error: unknown, fallback: string): string => {
+  const raw = error instanceof Error ? error.message : undefined;
+  const code = error instanceof ApiHttpError ? error.code : undefined;
+  if (code) return humanizeJobFailure(code, friendlyError(raw));
+  return friendlyError(raw) ?? fallback;
 };
 
 export const parseDate = (value: unknown, fallback: Date) => {
@@ -210,16 +239,7 @@ export const mapApiJob = (
             ...(warnings.length ? { warnings } : {}),
           }
         : undefined,
-    error:
-      state === 'failed'
-        ? {
-            code: 'FAILED',
-            message:
-              friendlyError(apiJob.failureReason ?? apiJob.FailureReason) ??
-              'The job failed to complete.',
-            isRetryable: true,
-          }
-        : undefined,
+    error: state === 'failed' ? jobFailureError(toolId, apiJob.failureReason ?? apiJob.FailureReason) : undefined,
     fileIds,
     options,
   };
