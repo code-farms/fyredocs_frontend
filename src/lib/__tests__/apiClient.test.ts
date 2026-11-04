@@ -21,8 +21,8 @@ describe('apiRequest errors', () => {
 
   it('leaves code undefined for bodies without one', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('bad gateway', { status: 502 })));
-    const err = await apiRequest('/api/x').catch((e) => e);
+    const err = await apiRequest('/api/x').catch((e: ApiHttpError) => e);
     expect(err).toMatchObject({ status: 502, message: 'bad gateway' });
-    expect(err.code).toBeUndefined();
+    expect((err as ApiHttpError).code).toBeUndefined();
   });
 });

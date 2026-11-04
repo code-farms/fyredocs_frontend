@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { Copy, FileDown, GraduationCap, Layers, LogIn, RotateCcw, Sparkles, Square, Wand2, X } from 'lucide-react';
+import { Copy, FileDown, GraduationCap, Layers, LogIn, PenLine, RotateCcw, ScanSearch, Sparkles, Square, Wand2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/typography';
 import { AskChat } from './AskChat';
+import { DetailsCard } from './DetailsCard';
 import { CitedText } from './CitedText';
 import { RewriteDialog } from './RewriteDialog';
 import { useAuth } from '@/auth/useAuth';
@@ -20,6 +21,10 @@ import { flashcardsToMarkdown, parseFlashcards, parseList } from '@/lib/ai/parse
 import { collectAiText, getAiProvider, registerAiProvider, type AiOp, type AiPage, type AiRequest } from '@/lib/ai/provider';
 import { AiRequestError, buildAiRequest, chunkForMapReduce, summariesAsPages } from '@/lib/ai/request';
 import { translationForDisplay } from '@/lib/ai/translation';
+import { ExtractionError, requestExtraction } from '@/lib/ai/extractRun';
+import type { Extraction } from '@/lib/ai/extraction';
+import { estimateTranscribe, TRANSCRIBE_MAX_PAGES, transcribePages } from '@/lib/ai/transcribe';
+import { ApiHttpError } from '@/lib/apiClient';
 import { AI_MAX_PAGES } from '@/lib/budgets';
 import { humanizeJobFailure } from '@/lib/jobErrors';
 import { toast } from '@/lib/toast';
@@ -56,8 +61,12 @@ interface AiPanelProps {
   currentPage: number;
   title: string;
   getPageText: (page: number) => Promise<string>;
+  /** Page (1-based) as an AI-sized JPEG data URL; null when it can't be rendered. */
+  getPageImage: (page: number) => Promise<string | null>;
   onCite: (page: number) => void;
   onClose: () => void;
+  /** Downloads the PDF under another name (the extraction's suggested title). */
+  onDownloadAs?: (fileName: string) => void;
 }
 
 /** Pages [from..to] (1-based) as AI pages (0-based index), blank pages dropped. */
@@ -89,7 +98,16 @@ const download = (name: string, text: string, type = 'text/plain') => {
  * date, large or multi-part runs ask first, and over AI_MAX_PAGES the whole
  * document is only available as an explicit "summarize in parts".
  */
-export const AiPanel = ({ pageCount, currentPage, title, getPageText, onCite, onClose }: AiPanelProps) => {
+export const AiPanel = ({
+  pageCount,
+  currentPage,
+  title,
+  getPageText,
+  getPageImage,
+  onCite,
+  onClose,
+  onDownloadAs,
+}: AiPanelProps) => {
   const { isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -107,6 +125,11 @@ export const AiPanel = ({ pageCount, currentPage, title, getPageText, onCite, on
   const [lang, setLang] = useState('Hindi');
   const [otherLang, setOtherLang] = useState('');
   const [rewriteOpen, setRewriteOpen] = useState(false);
+  const [extraction, setExtraction] = useState<Extraction | null>(null);
+  const [extracting, setExtracting] = useState(false);
+  const [transcribing, setTranscribing] = useState<{ done: number; total: number } | null>(null);
+  const [transcript, setTranscript] = useState<{ page: number; text: string }[] | null>(null);
+  const [transcribeLang, setTranscribeLang] = useState('');
 
   const header = (
     <div className="flex items-center gap-2 border-b px-4 py-3">
@@ -140,8 +163,8 @@ export const AiPanel = ({ pageCount, currentPage, title, getPageText, onCite, on
 
   const refreshQuota = () => void queryClient.invalidateQueries({ queryKey: ['ai', 'quota'] });
 
-  /** The chosen scope's pages, or null after telling the user why not. */
-  const scopePages = async (): Promise<{ pages: AiPage[]; label: string } | null> => {
+  /** The chosen scope as a page span, or null after telling the user why not. */
+  const scopeRange = (max = AI_MAX_PAGES): { from: number; to: number; label: string } | null => {
     let from = 1;
     let to = pageCount;
     let label = 'Whole document';
@@ -155,12 +178,20 @@ export const AiPanel = ({ pageCount, currentPage, title, getPageText, onCite, on
         toast.error(`Enter a page range between 1 and ${pageCount}.`);
         return null;
       }
-      if (to - from + 1 > AI_MAX_PAGES) {
-        toast.error(`AI reads up to ${AI_MAX_PAGES} pages at a time — pick a shorter range.`);
-        return null;
-      }
       label = from === to ? `Page ${from}` : `Pages ${from}–${to}`;
     }
+    if (to - from + 1 > max) {
+      toast.error(`AI reads up to ${max} pages at a time — pick a shorter range.`);
+      return null;
+    }
+    return { from, to, label };
+  };
+
+  /** The chosen scope's pages, or null after telling the user why not. */
+  const scopePages = async (): Promise<{ pages: AiPage[]; label: string } | null> => {
+    const span = scopeRange();
+    if (!span) return null;
+    const { from, to, label } = span;
     const pages = await collectPages(getPageText, from, to);
     setNoText(pages.length === 0);
     return pages.length ? { pages, label } : null;
@@ -249,6 +280,64 @@ export const AiPanel = ({ pageCount, currentPage, title, getPageText, onCite, on
       refreshQuota();
     });
   };
+
+  const aiError = (err: unknown) =>
+    err instanceof ExtractionError ? err.message : humanizeJobFailure(err instanceof ApiHttpError ? err.code : undefined, undefined);
+
+  /** Type, fields and tables from the first pages' text plus a picture of page 1. */
+  const detect = async () => {
+    setExtracting(true);
+    try {
+      const [pages, image] = await Promise.all([
+        collectPages(getPageText, 1, Math.min(pageCount, AI_MAX_PAGES)),
+        getPageImage(1),
+      ]);
+      setExtraction(await requestExtraction(pages, image ? [image] : []));
+      refreshQuota();
+    } catch (err) {
+      toast.error(aiError(err));
+    } finally {
+      setExtracting(false);
+    }
+  };
+
+  /** Handwriting/scans: page pictures → text through the vision model. */
+  const transcribe = () => {
+    const span = scopeRange(TRANSCRIBE_MAX_PAGES);
+    if (!span) return;
+    const pageList = Array.from({ length: span.to - span.from + 1 }, (_, i) => span.from + i);
+    const estimate = estimateTranscribe(pageList.length);
+    const go = async () => {
+      setPending(null);
+      setTranscript(null);
+      setTranscribing({ done: 0, total: pageList.length });
+      try {
+        const out = await transcribePages(pageList, {
+          render: getPageImage,
+          language: transcribeLang || undefined,
+          onProgress: (done, total) => setTranscribing({ done, total }),
+        });
+        setTranscript(out);
+      } catch (err) {
+        toast.error(aiError(err));
+      } finally {
+        setTranscribing(null);
+        refreshQuota();
+      }
+    };
+    const c = checkCost(estimate, quota.data, Math.ceil(pageList.length / 2));
+    if (c.kind === 'insufficient') {
+      toast.error(`Not enough AI quota left this month — it resets ${format(new Date(c.resetsAt), 'd MMM')}.`);
+      return;
+    }
+    if (c.kind === 'confirm') {
+      setPending({ message: `Transcribing ${pageList.length} pages uses up to about ${formatTokens(estimate)} tokens.`, go });
+      return;
+    }
+    void go();
+  };
+
+  const transcriptText = transcript?.map((t) => `Page ${t.page}\n${t.text || '(nothing readable)'}`).join('\n\n') ?? '';
 
   const running = ai.state.status === 'running' || parts !== null;
   const answer = ai.state.text;
@@ -373,13 +462,67 @@ export const AiPanel = ({ pageCount, currentPage, title, getPageText, onCite, on
             <Button variant="link" size="sm" className="h-auto px-0" asChild>
               <Link to="/ocr">Make the PDF searchable with OCR first</Link>
             </Button>
+            <div className="mt-2 flex flex-wrap items-center gap-2 border-t pt-2">
+              <Text variant="body-sm" className="w-full">
+                Handwritten? AI can read the page pictures (up to {TRANSCRIBE_MAX_PAGES} pages).
+              </Text>
+              <Select value={transcribeLang || 'auto'} onValueChange={(v) => setTranscribeLang(v === 'auto' ? '' : v)}>
+                <SelectTrigger className="h-8 w-40" aria-label="Handwriting language">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">Detect language</SelectItem>
+                  <SelectItem value="eng">English</SelectItem>
+                  <SelectItem value="hin">Hindi</SelectItem>
+                  <SelectItem value="eng+hin">English + Hindi</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button size="sm" variant="outline" disabled={transcribing !== null} onClick={transcribe}>
+                <PenLine aria-hidden />
+                Transcribe with AI
+              </Button>
+            </div>
           </div>
         )}
 
+        {transcribing && (
+          <Text variant="body-sm" tone="muted" aria-live="polite">
+            Transcribing page {Math.min(transcribing.done + 1, transcribing.total)} of {transcribing.total}…
+          </Text>
+        )}
+        {transcript && (
+          <section className="space-y-2 rounded-lg border p-3" aria-label="Transcription">
+            <Text variant="body-sm" className="font-medium">
+              Transcription
+            </Text>
+            <div className="whitespace-pre-wrap text-body-sm">{transcriptText}</div>
+            <div className="flex gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() =>
+                  void navigator.clipboard.writeText(transcriptText).then(
+                    () => toast.success('Copied to clipboard'),
+                    () => toast.error("Couldn't copy the text.")
+                  )
+                }
+              >
+                <Copy aria-hidden />
+                Copy
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => download(`${title} — Transcription.txt`, transcriptText)}>
+                <FileDown aria-hidden />
+                Download .txt
+              </Button>
+            </div>
+          </section>
+        )}
+
         <Tabs defaultValue="document">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="document">Document</TabsTrigger>
             <TabsTrigger value="ask">Ask</TabsTrigger>
+            <TabsTrigger value="details">Details</TabsTrigger>
           </TabsList>
 
           <TabsContent value="document" className="space-y-4">
@@ -495,6 +638,21 @@ export const AiPanel = ({ pageCount, currentPage, title, getPageText, onCite, on
                 )}
               </section>
             )}
+          </TabsContent>
+
+          <TabsContent value="details" className="space-y-3">
+            {extraction ? (
+              <DetailsCard extraction={extraction} docName={title} onDownloadAs={onDownloadAs} />
+            ) : (
+              <Text variant="body-sm" tone="muted">
+                Detect the document type — invoice, receipt, ID, business card, form, statement… — and pull out names,
+                dates, totals and tables.
+              </Text>
+            )}
+            <Button variant={extraction ? 'ghost' : 'outline'} size="sm" disabled={extracting} onClick={() => void detect()}>
+              <ScanSearch aria-hidden />
+              {extracting ? 'Detecting…' : extraction ? 'Re-detect' : 'Detect details'}
+            </Button>
           </TabsContent>
 
           <TabsContent value="ask">

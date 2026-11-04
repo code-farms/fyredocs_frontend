@@ -39,10 +39,7 @@ const loadPdfjs = () => {
 export const openPdf = async (data: Uint8Array): Promise<PDFDocumentProxy> => {
   const pdfjs = await loadPdfjs();
   try {
-    // isEvalSupported: false — the production CSP has no 'unsafe-eval'
-    // (deployment/caddy/Caddyfile), so pdf.js's new Function() fast path would
-    // only log violations before falling back to its interpreter.
-    return await pdfjs.getDocument({ data, isEvalSupported: false }).promise;
+    return await pdfjs.getDocument({ data }).promise;
   } catch (err) {
     const name = (err as { name?: string })?.name;
     if (name === 'PasswordException') {
@@ -156,9 +153,13 @@ export const isRenderCancelled = (err: unknown) =>
  */
 export const readPermissions = async (doc: PDFDocumentProxy): Promise<PdfPermissions | null> => {
   try {
+    // pdf.js 6 returns a Set of granted flags (older versions: an array).
     const flags = await doc.getPermissions();
-    return flags ? decodePermissionBits(flags.reduce((p, f) => p | f, 0)) : null;
+    return flags ? decodePermissionBits(Array.from(flags).reduce((p, f) => p | f, 0)) : null;
   } catch {
     return null;
   }
 };
+
+/** Releases a document and its worker-side resources (pdf.js 6: via the loading task). */
+export const closePdf = (doc: PDFDocumentProxy): Promise<void> => doc.loadingTask.destroy();

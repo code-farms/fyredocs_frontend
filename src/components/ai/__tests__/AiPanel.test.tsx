@@ -12,6 +12,8 @@ const mockQuota = vi.hoisted(() => ({ data: undefined as undefined | Record<stri
 vi.mock('@/hooks/useAiQuota', () => ({ useAiQuota: () => mockQuota }));
 const mockToast = vi.hoisted(() => ({ error: vi.fn(), success: vi.fn(), info: vi.fn() }));
 vi.mock('@/lib/toast', () => ({ toast: mockToast }));
+const mockAiApi = vi.hoisted(() => ({ postExtract: vi.fn(), postTranscribe: vi.fn(), getAiQuota: vi.fn() }));
+vi.mock('@/lib/aiApi', () => mockAiApi);
 
 const texts = ['Intro page', 'Rent is due monthly.', 'Termination clause.'];
 const getPageText = async (p: number) => texts[p - 1] ?? '';
@@ -24,6 +26,7 @@ const renderPanel = (props: Partial<Parameters<typeof AiPanel>[0]> = {}) => {
       currentPage={2}
       title="Lease"
       getPageText={getPageText}
+      getPageImage={async () => null}
       onCite={onCite}
       onClose={vi.fn()}
       {...props}
@@ -158,5 +161,43 @@ describe('AiPanel — W9 ops', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Simplify' }));
     expect(await screen.findByText('Plain words.')).toBeInTheDocument();
     expect(stub.calls[0]).toMatchObject({ op: 'rewrite', pages: [], passage: 'Heretofore the lessee shall…' });
+  });
+});
+
+describe('AiPanel — details and handwriting', () => {
+  beforeEach(() => {
+    mockAuth.isAuthenticated = true;
+    mockQuota.data = undefined;
+    Object.values(mockToast).forEach((f) => f.mockReset());
+  });
+
+  it('detects details from text plus a picture of page 1', async () => {
+    mockAiApi.postExtract.mockResolvedValue({ docType: 'invoice', confidence: 0.9, title: 'Invoice 42', fields: { invoiceNumber: '42', total: 1180 }, tables: [] });
+    const getPageImage = vi.fn(async () => 'data:image/jpeg;base64,QUJD');
+    renderPanel({ getPageImage });
+    await userEvent.click(screen.getByRole('tab', { name: 'Details' }));
+    await userEvent.click(screen.getByRole('button', { name: /Detect details/ }));
+    expect(await screen.findByText('Invoice')).toBeInTheDocument();
+    expect(getPageImage).toHaveBeenCalledWith(1);
+    expect(mockAiApi.postExtract).toHaveBeenCalledWith({
+      pages: [
+        { index: 0, text: 'Intro page' },
+        { index: 1, text: 'Rent is due monthly.' },
+        { index: 2, text: 'Termination clause.' },
+      ],
+      images: ['data:image/jpeg;base64,QUJD'],
+    });
+  });
+
+  it('transcribes scanned pages when there is no text layer', async () => {
+    mockAiApi.postTranscribe.mockResolvedValue(['हस्तलिखित नोट']);
+    renderPanel({ getPageText: async () => '', getPageImage: async () => 'data:image/jpeg;base64,QUJD' });
+    await userEvent.click(screen.getByRole('button', { name: 'Summarize' }));
+    await userEvent.click(await screen.findByRole('button', { name: /Transcribe with AI/ }));
+    // Three pages = two requests, so the cost gate asks first.
+    expect(screen.getByText(/Transcribing 3 pages uses up to about/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Run' }));
+    expect(await screen.findByText(/हस्तलिखित नोट/)).toBeInTheDocument();
+    expect(mockAiApi.postTranscribe).toHaveBeenCalledWith({ images: ['data:image/jpeg;base64,QUJD'] , language: undefined });
   });
 });

@@ -29,7 +29,7 @@ vi.mock('@/lib/reader/source', async (orig) => ({
 }));
 vi.mock('@/lib/pdf/fonts', () => ({ hasNonEmbeddedFonts: async () => false }));
 
-const fakeDoc = (numPages: number) => ({ numPages, destroy: vi.fn() });
+const fakeDoc = (numPages: number) => ({ numPages, loadingTask: { destroy: vi.fn(async () => undefined) } });
 const okTask = () => ({ promise: Promise.resolve(), cancel: vi.fn() });
 
 const renderAt = (url: string) =>

@@ -7,7 +7,7 @@ import { Heading, Text } from '@/components/ui/typography';
 import { ErrorState } from '@/components/common/ErrorState';
 import { PageLoading } from '@/components/common/LoadingState';
 import { ReaderView } from '@/components/reader/ReaderView';
-import { openPdf, PdfOpenError, type PDFDocumentProxy } from '@/lib/pdf/pdfjs';
+import { closePdf, openPdf, PdfOpenError, type PDFDocumentProxy } from '@/lib/pdf/pdfjs';
 import { hasNonEmbeddedFonts } from '@/lib/pdf/fonts';
 import { readerSourceFromParams } from '@/lib/reader/reader';
 import { fetchSourceBytes, ReaderSourceError, sourceUrl } from '@/lib/reader/source';
@@ -85,7 +85,7 @@ const ReaderPage = () => {
     })();
     return () => {
       abort.abort();
-      void opened?.destroy();
+      if (opened) void closePdf(opened).catch(() => undefined);
     };
   }, [source, localFile, attempt]);
 

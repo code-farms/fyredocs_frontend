@@ -8,6 +8,7 @@ import { AiPanel } from '@/components/ai/AiPanel';
 import { useFlags } from '@/hooks/useFlags';
 import { useReadAloud } from '@/hooks/useReadAloud';
 import { printPdfBytes } from '@/lib/reader/print';
+import { pageImageForAi } from '@/lib/pdf/pageImage';
 import type { PdfPermissions } from '@/lib/pdf/permissions';
 import { locateMatch, useDocSearch } from '@/hooks/useDocSearch';
 import { findMatches } from '@/lib/docSearch';
@@ -364,6 +365,16 @@ export const ReaderView = ({ doc, title, downloadUrl }: ReaderViewProps) => {
             currentPage={page}
             title={title.replace(/\.pdf$/i, '')}
             getPageText={getPageText}
+            getPageImage={(p) => pageImageForAi(doc, p)}
+            onDownloadAs={async (fileName) => {
+              const bytes = await doc.getData();
+              const url = URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'application/pdf' }));
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = fileName;
+              a.click();
+              setTimeout(() => URL.revokeObjectURL(url), 1000);
+            }}
             onCite={goTo}
             onClose={() => setAiOpen(false)}
           />
