@@ -121,6 +121,11 @@ const calculateProgress = (
 interface UseFileUploadOptions {
   tool: ToolDefinition;
   onValidationError?: (errors: string[]) => void;
+  /**
+   * Keep added files in the browser instead of auto-uploading them ("Process
+   * in browser"). Turning it off later starts the uploads of any idle files.
+   */
+  deferUpload?: boolean;
 }
 
 interface UseFileUploadReturn {
@@ -143,7 +148,7 @@ interface UseFileUploadReturn {
   canProceed: boolean;
 }
 
-export const useFileUpload = ({ tool, onValidationError }: UseFileUploadOptions): UseFileUploadReturn => {
+export const useFileUpload = ({ tool, onValidationError, deferUpload = false }: UseFileUploadOptions): UseFileUploadReturn => {
   const [files, setFiles] = useState<FileUpload[]>([]);
   const uploadControllers = useRef<Map<string, AbortController>>(new Map());
   const filesRef = useRef<FileUpload[]>([]);
@@ -677,15 +682,16 @@ export const useFileUpload = ({ tool, onValidationError }: UseFileUploadOptions)
   const canProceed =
     files.length >= tool.minFiles &&
     files.length <= tool.maxFiles &&
-    files.every((f) => f.state === 'completed' && Boolean(f.serverFileId));
+    (deferUpload || files.every((f) => f.state === 'completed' && Boolean(f.serverFileId)));
 
   useEffect(() => {
+    if (deferUpload) return;
     files
       .filter((file) => file.state === 'idle')
       .forEach((file) => {
         startUpload(file.id);
       });
-  }, [files, startUpload]);
+  }, [files, startUpload, deferUpload]);
 
   return {
     files,

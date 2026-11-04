@@ -5,6 +5,9 @@ import { z } from 'zod';
 import { UploadCloud } from 'lucide-react';
 import { ToolDefinition, ToolOptions } from '@/types';
 import { useFileUpload } from '@/hooks/useFileUpload';
+import { LOCAL_TOOLS, LocalToolError, localBlocker, runLocalTool, type LocalResult } from '@/lib/localTools';
+import { LocalModeToggle } from './LocalModeToggle';
+import { LocalResultCard } from './LocalResultCard';
 import { useJob } from '@/hooks/useJob';
 import { useBatchJob } from '@/hooks/useBatchJob';
 import { usePdfPageCount } from '@/hooks/usePdfPageCount';
@@ -50,6 +53,11 @@ interface ToolWorkbenchProps {
  */
 export const ToolWorkbench = ({ tool }: ToolWorkbenchProps) => {
   const [batchMode, setBatchMode] = useState(false);
+  // "Process in browser" (lib/localTools.ts) — opt-in, page tools only.
+  const localEligible = LOCAL_TOOLS.has(tool.id) && !tool.bespoke;
+  const [localMode, setLocalMode] = useState(false);
+  const [localOutcome, setLocalOutcome] = useState<{ result?: LocalResult; error?: string } | null>(null);
+  const [localBusy, setLocalBusy] = useState(false);
   const [upgradeDialog, setUpgradeDialog] = useState<{ open: boolean; reason?: PlanLimitReason }>({
     open: false,
   });
@@ -68,6 +76,7 @@ export const ToolWorkbench = ({ tool }: ToolWorkbenchProps) => {
     retryUpload: retryFileUpload,
   } = useFileUpload({
     tool,
+    deferUpload: localMode,
     onValidationError: (errors) => {
       errors.forEach((error) => toast.error(error));
     },
@@ -179,11 +188,37 @@ export const ToolWorkbench = ({ tool }: ToolWorkbenchProps) => {
     return uploaded;
   }, [files, isUploading, tool.minFiles]);
 
+  /** Browser run: same options as the server path, a Blob instead of a job. */
+  const runLocally = useCallback(async () => {
+    const inputs = files.map((f) => f.file);
+    const blocker = localBlocker(tool.id, inputs);
+    if (blocker) {
+      toast.error(blocker);
+      return;
+    }
+    setLocalBusy(true);
+    try {
+      const options = buildOptions(tool, form.getValues(), files.map((f) => f.id));
+      setLocalOutcome({ result: await runLocalTool(tool.id, inputs, options) });
+    } catch (err) {
+      setLocalOutcome({
+        error: err instanceof LocalToolError ? err.message : "The browser couldn't process this file — try the server instead.",
+      });
+    } finally {
+      setLocalBusy(false);
+    }
+  }, [files, form, tool]);
+
   /** Generic submit: validate form → guard uploads → build options → createJob/startBatch. */
   const handleSubmit = useCallback(async () => {
     if (panelId) {
       const valid = await form.trigger();
       if (!valid) return;
+    }
+
+    if (localEligible && localMode) {
+      await runLocally();
+      return;
     }
 
     const uploaded = collectUploadedFiles();
@@ -197,7 +232,7 @@ export const ToolWorkbench = ({ tool }: ToolWorkbenchProps) => {
     } else {
       createJob(tool.id, fileIds, options);
     }
-  }, [batchMode, collectUploadedFiles, createJob, form, panelId, startBatch, tool]);
+  }, [batchMode, collectUploadedFiles, createJob, form, localEligible, localMode, panelId, runLocally, startBatch, tool]);
 
   /** Bespoke bodies build their own options and delegate the job creation here. */
   const handleBespokeSubmit = useCallback(
@@ -210,6 +245,7 @@ export const ToolWorkbench = ({ tool }: ToolWorkbenchProps) => {
   );
 
   const handleStartOver = useCallback(() => {
+    setLocalOutcome(null);
     resetJob();
     resetBatch();
     clearFiles();
@@ -242,14 +278,35 @@ export const ToolWorkbench = ({ tool }: ToolWorkbenchProps) => {
     (files.length > 1 ? `Process ${files.length} files` : `Process file`);
 
   const hasConfigure = Boolean(tool.optionsPanel || tool.bespoke);
-  const viewKey = showBatch ? 'batch' : job ? 'job' : stage === 'upload' ? 'upload' : 'configure';
+  const viewKey = localOutcome ? 'local' : showBatch ? 'batch' : job ? 'job' : stage === 'upload' ? 'upload' : 'configure';
+  const localToggle = localEligible && (
+    <LocalModeToggle
+      checked={localMode}
+      disabled={localBusy}
+      onChange={(on) => {
+        setLocalMode(on);
+        if (on) setBatchMode(false);
+      }}
+    />
+  );
 
   return (
     <div className="relative">
       <ToolStepper stage={stage} hasConfigure={hasConfigure} />
 
       <AnimatedSwitch switchKey={viewKey}>
-        {showBatch ? (
+        {localOutcome ? (
+          <LocalResultCard
+            result={localOutcome.result}
+            error={localOutcome.error}
+            onStartOver={handleStartOver}
+            onUseServer={() => {
+              // Files are still here; switching off starts their uploads.
+              setLocalMode(false);
+              setLocalOutcome(null);
+            }}
+          />
+        ) : showBatch ? (
           <BatchProgress
             batchJobs={batchJobs}
             isProcessing={isBatchProcessing}
@@ -269,6 +326,8 @@ export const ToolWorkbench = ({ tool }: ToolWorkbenchProps) => {
             <ResultStage tool={tool} job={job} onStartOver={handleStartOver} onRetry={handleRetry} />
           )
         ) : stage === 'upload' ? (
+          <div className="space-y-4">
+          {localToggle}
           <UploadStage
             ref={dropzoneRef}
             tool={tool}
@@ -276,8 +335,10 @@ export const ToolWorkbench = ({ tool }: ToolWorkbenchProps) => {
             onLimitExceeded={handleLimitExceeded}
             disabled={isUploading}
           />
+          </div>
         ) : (
           <div className="space-y-6 pb-24 sm:pb-0">
+            {localToggle}
             <ConfigureStage
               tool={tool}
               files={files}
@@ -292,7 +353,7 @@ export const ToolWorkbench = ({ tool }: ToolWorkbenchProps) => {
               onResumeFile={resumeUpload}
               onReorderFiles={reorderFiles}
               onClearFiles={handleStartOver}
-              batchMode={batchMode}
+              batchMode={batchMode && !localMode}
               onBatchModeChange={setBatchMode}
               canSubmit={canProceed}
               onBespokeSubmit={handleBespokeSubmit}
@@ -301,10 +362,10 @@ export const ToolWorkbench = ({ tool }: ToolWorkbenchProps) => {
             {/* Bespoke bodies render their own primary CTA. */}
             {!tool.bespoke && (
               <StickyActionBar
-                primaryLabel={actionLabel}
+                primaryLabel={localBusy ? 'Processing in browser…' : actionLabel}
                 onPrimary={() => void handleSubmit()}
-                primaryDisabled={!canProceed}
-                hint={isUploading ? 'Uploading…' : undefined}
+                primaryDisabled={!canProceed || localBusy}
+                hint={localMode ? 'Processed in your browser — nothing is uploaded' : isUploading ? 'Uploading…' : undefined}
               />
             )}
           </div>
