@@ -20,7 +20,8 @@ import { FileTypeIcon } from '@/components/app/FileTypeIcon';
 import { buildApiUrl } from '@/lib/apiClient';
 import { buildDownloadPath, getToolIdByApiName } from '@/lib/toolApi';
 import { formatBytes } from '@/lib/userMetrics';
-import type { ApiDocument, ApiFolder, ApiTag, DocumentStatus } from '@/lib/documentsApi';
+import { downloadDocument, type ApiDocument, type ApiFolder, type ApiTag, type DocumentStatus, type DocumentDownloadResult } from '@/lib/documentsApi';
+import { toast } from '@/lib/toast';
 import type { ToolId } from '@/types';
 
 const STATUS_MAP: Record<DocumentStatus, NonNullable<StatusBadgeProps['status']>> = {
@@ -43,6 +44,12 @@ function downloadUrlFor(doc: ApiDocument): string | null {
   if (!toolId) return null;
   return buildApiUrl(buildDownloadPath(toolId, jobId));
 }
+
+const DOWNLOAD_ERRORS: Record<Exclude<DocumentDownloadResult, 'started'>, string> = {
+  missing: 'This document has no stored file.',
+  'signed-out': 'Sign in again to download this document.',
+  failed: "The download couldn't start — try again.",
+};
 
 export interface LibraryDocumentCardProps {
   doc: ApiDocument;
@@ -85,12 +92,26 @@ export function LibraryDocumentCard({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
-        <DropdownMenuItem asChild disabled={!downloadUrl}>
-          <a href={downloadUrl ?? undefined} download>
+        {downloadUrl ? (
+          <DropdownMenuItem asChild>
+            <a href={downloadUrl} download>
+              <Download className="mr-2 h-4 w-4" aria-hidden />
+              Download
+            </a>
+          </DropdownMenuItem>
+        ) : (
+          // No processing job (e.g. backed up from the mobile app): the
+          // document's own stored bytes, if it has any.
+          <DropdownMenuItem
+            onClick={async () => {
+              const result = await downloadDocument(doc.id, doc.organizationId ?? undefined);
+              if (result !== 'started') toast.error(DOWNLOAD_ERRORS[result]);
+            }}
+          >
             <Download className="mr-2 h-4 w-4" aria-hidden />
             Download
-          </a>
-        </DropdownMenuItem>
+          </DropdownMenuItem>
+        )}
 
         {folders && onMove && (
           <DropdownMenuSub>

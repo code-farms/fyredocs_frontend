@@ -1,4 +1,4 @@
-import { apiJson, apiRequest } from '@/lib/apiClient';
+import { apiJson, apiRequest, buildApiUrl } from '@/lib/apiClient';
 
 // ---- document-service shapes ----
 export interface ApiTag {
@@ -19,6 +19,8 @@ export type DocumentStatus = 'uploaded' | 'processing' | 'ready' | 'failed';
 
 export interface ApiDocument {
   id: string;
+  /** Workspace the document belongs to; null/absent for personal documents. */
+  organizationId?: string | null;
   folderId?: string | null;
   name: string;
   fileType?: string;
@@ -109,6 +111,38 @@ export const updateDocument = (id: string, patch: UpdateDocumentInput, orgId?: s
   }).then((r) => r.data);
 
 const orgQuery = (orgId?: string) => (orgId ? `?orgId=${orgId}` : '');
+
+/** document-service download route: 302 to a 5-minute presigned URL, 404 when no bytes are stored. */
+export const documentDownloadUrl = (id: string, orgId?: string): string =>
+  buildApiUrl(`/api/documents/${id}/download${orgQuery(orgId)}`);
+
+export type DocumentDownloadResult = 'started' | 'missing' | 'signed-out' | 'failed';
+
+/**
+ * Downloads a document's stored bytes — the path for documents backed up from
+ * the mobile app, which have no processing job to download from.
+ *
+ * Probes with redirect:'manual' first: following the 302 from fetch would need
+ * CORS on the object store, and navigating blindly turns a 404 ("no stored
+ * file") into a JSON error page. Only a redirect navigates; the presigned URL
+ * answers with Content-Disposition: attachment, so the page stays put.
+ */
+export const downloadDocument = async (id: string, orgId?: string): Promise<DocumentDownloadResult> => {
+  const url = documentDownloadUrl(id, orgId);
+  let res: Response;
+  try {
+    res = await fetch(url, { credentials: 'include', redirect: 'manual' });
+  } catch {
+    return 'failed';
+  }
+  if (res.type === 'opaqueredirect' || (res.status >= 300 && res.status < 400) || res.ok) {
+    window.location.assign(url);
+    return 'started';
+  }
+  if (res.status === 404) return 'missing';
+  if (res.status === 401) return 'signed-out';
+  return 'failed';
+};
 
 export const attachTag = (documentId: string, tagId: string, orgId?: string): Promise<void> =>
   apiJson(`/api/documents/${documentId}/tags${orgQuery(orgId)}`, { method: 'POST', body: JSON.stringify({ tagId }) }).then(() => undefined);
