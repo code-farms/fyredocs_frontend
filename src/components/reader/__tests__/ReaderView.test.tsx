@@ -6,6 +6,7 @@ import { saveLastPage, loadReaderState } from '@/lib/reader/readerStore';
 import type { PDFDocumentProxy } from '@/lib/pdf/pdfjs';
 
 const pageTexts = ['Intro', 'The lease term', 'Rent and lease renewal'];
+const mockPermissions = vi.hoisted(() => vi.fn(() => null as null | Record<string, boolean>));
 vi.mock('@/lib/pdf/pdfjs', async (orig) => ({
   ...(await orig<typeof import('@/lib/pdf/pdfjs')>()),
   renderPage: async () => ({ promise: Promise.resolve(), cancel: vi.fn() }),
@@ -14,6 +15,7 @@ vi.mock('@/lib/pdf/pdfjs', async (orig) => ({
     { title: 'Terms', depth: 0, page: 2 },
     { title: 'Renewal', depth: 1, page: 3 },
   ],
+  readPermissions: async () => mockPermissions(),
   docFingerprint: () => 'fp-view',
   pageTextLayer: async (_d: unknown, p: number) => {
     const str = pageTexts[p - 1];
@@ -66,9 +68,49 @@ describe('ReaderView', () => {
     const user = userEvent.setup();
     render(<ReaderView doc={doc} title="Lease.pdf" />);
     await waitFor(() => expect(mockToast.info).toHaveBeenCalledWith('Resumed at page 3'));
-    expect(screen.getByRole('textbox', { name: 'Page number' })).toHaveValue('3');
+    // The toast fires in the same effect that sets the page; wait for the re-render.
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Page number' })).toHaveValue('3'));
     await user.click(screen.getByRole('tab', { name: 'Contents' }));
     await user.click(await screen.findByRole('button', { name: /Terms/ }));
     expect(screen.getByRole('textbox', { name: 'Page number' })).toHaveValue('2');
+  });
+});
+
+describe('ReaderView permissions and actions', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.stubGlobal('IntersectionObserver', class { observe() {} disconnect() {} });
+    Element.prototype.scrollTo = vi.fn();
+    Object.values(mockToast).forEach((f) => f.mockReset());
+  });
+
+  it('explains restricted printing and copying instead of doing them', async () => {
+    mockPermissions.mockReturnValue({ print: false, copy: false, modify: false, annotate: false, assemble: false });
+    const getData = vi.fn();
+    const user = userEvent.setup();
+    render(<ReaderView doc={{ numPages: 3, getData } as unknown as PDFDocumentProxy} title="Locked.pdf" />);
+    await waitFor(() => expect(mockPermissions).toHaveBeenCalled());
+    await user.click(screen.getByRole('button', { name: 'Print' }));
+    await user.click(screen.getByRole('button', { name: 'Copy page text' }));
+    expect(mockToast.info).toHaveBeenCalledWith("Printing is restricted by this document's permissions.");
+    expect(mockToast.info).toHaveBeenCalledWith("Copying text is restricted by this document's permissions.");
+    expect(getData).not.toHaveBeenCalled();
+  });
+
+  it('copies the current page text when allowed', async () => {
+    mockPermissions.mockReturnValue(null);
+    const user = userEvent.setup();
+    // user-event installs its own clipboard stub at setup; spy on that one.
+    const writeText = vi.spyOn(navigator.clipboard, 'writeText');
+    render(<ReaderView doc={doc} title="Lease.pdf" />);
+    await user.click(screen.getByRole('button', { name: 'Copy page text' }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith('Intro'));
+    expect(mockToast.success).toHaveBeenCalledWith('Copied the text of page 1');
+  });
+
+  it('hides read aloud when the browser has no speech engine', () => {
+    // jsdom has no speechSynthesis, which is exactly the unsupported case.
+    render(<ReaderView doc={doc} title="Lease.pdf" />);
+    expect(screen.queryByRole('button', { name: 'Read aloud' })).toBeNull();
   });
 });

@@ -4,6 +4,7 @@
  */
 import type { PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 import { textLayerFrom, type PageTextLayer, type RawTextItem } from './textItems';
+import { decodePermissionBits, type PdfPermissions } from './permissions';
 
 export type { PDFDocumentProxy };
 
@@ -146,3 +147,18 @@ export const docFingerprint = (doc: PDFDocumentProxy): string => doc.fingerprint
 
 export const isRenderCancelled = (err: unknown) =>
   (err as { name?: string })?.name === 'RenderingCancelledException';
+
+/**
+ * The document's advisory permissions, or null when nothing is restricted
+ * (unencrypted / no /P). pdf.js returns the granted flags, which OR back into
+ * the /P bits the ported decodePermissionBits reads. Fail-open: any error
+ * reads as unrestricted — a broken probe must never lock a user out.
+ */
+export const readPermissions = async (doc: PDFDocumentProxy): Promise<PdfPermissions | null> => {
+  try {
+    const flags = await doc.getPermissions();
+    return flags ? decodePermissionBits(flags.reduce((p, f) => p | f, 0)) : null;
+  } catch {
+    return null;
+  }
+};

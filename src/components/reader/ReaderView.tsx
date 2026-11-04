@@ -3,6 +3,10 @@ import { PageView, type PageHighlight } from './PageView';
 import { ReaderSearchBar } from './ReaderSearchBar';
 import { ReaderSidePanel, type SidePanelTab } from './ReaderSidePanel';
 import { ReaderToolbar } from './ReaderToolbar';
+import { ReadAloudBar } from './ReadAloudBar';
+import { useReadAloud } from '@/hooks/useReadAloud';
+import { printPdfBytes } from '@/lib/reader/print';
+import type { PdfPermissions } from '@/lib/pdf/permissions';
 import { locateMatch, useDocSearch } from '@/hooks/useDocSearch';
 import { findMatches } from '@/lib/docSearch';
 import { rectsForRange } from '@/lib/pdf/oracle/oracleMath';
@@ -11,6 +15,7 @@ import {
   pageSize,
   pageTextLayer,
   readOutline,
+  readPermissions,
   type OutlineEntry,
   type PDFDocumentProxy,
 } from '@/lib/pdf/pdfjs';
@@ -34,6 +39,9 @@ import {
   type Bookmark,
 } from '@/lib/reader/readerStore';
 import { toast } from '@/lib/toast';
+
+/** Advisory permissions are explained, never silently greyed out (the app's Phase 16 contract). */
+const restricted = (action: string) => `${action} is restricted by this document's permissions.`;
 
 /** Highlight cap per page, as in the app: a one-letter query must not draw thousands of boxes. */
 const MAX_HIGHLIGHTS_PER_PAGE = 200;
@@ -63,6 +71,7 @@ export const ReaderView = ({ doc, title, downloadUrl }: ReaderViewProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const layers = useRef(new Map<number, Promise<PageTextLayer>>());
   const resumeTo = useRef<number | null>(null);
+  const [permissions, setPermissions] = useState<PdfPermissions | null>(null);
 
   // Page sizes start from page 1 for every page; refined near the reader below.
   useEffect(() => {
@@ -72,6 +81,7 @@ export const ReaderView = ({ doc, title, downloadUrl }: ReaderViewProps) => {
       .then((first) => !cancelled && setSizes(Array.from({ length: doc.numPages }, () => first)))
       .catch(() => !cancelled && setSizes(Array.from({ length: doc.numPages }, () => ({ width: 612, height: 792 }))));
     readOutline(doc).then((o) => !cancelled && setOutline(o));
+    readPermissions(doc).then((p) => !cancelled && setPermissions(p));
     const saved = loadReaderState(fp);
     setBookmarks(saved.bookmarks);
     if (saved.lastPage > 1 && saved.lastPage <= doc.numPages) resumeTo.current = saved.lastPage;
@@ -208,6 +218,44 @@ export const ReaderView = ({ doc, title, downloadUrl }: ReaderViewProps) => {
 
   const bookmarked = bookmarks.some((b) => b.page === page);
 
+  // ── Read aloud, print, copy ──
+  const getPageText = useCallback(async (p: number) => (await getLayer(p)).text, [getLayer]);
+  const readAloud = useReadAloud({
+    pageCount: doc.numPages,
+    getPageText,
+    onPage: (p) => p !== page && goTo(p),
+  });
+
+  const print = async () => {
+    if (permissions && !permissions.print) {
+      toast.info(restricted('Printing'));
+      return;
+    }
+    try {
+      printPdfBytes(await doc.getData());
+    } catch {
+      toast.error("The document couldn't be printed — try downloading it instead.");
+    }
+  };
+
+  const copyText = async () => {
+    if (permissions && !permissions.copy) {
+      toast.info(restricted('Copying text'));
+      return;
+    }
+    const text = (await getPageText(page).catch(() => '')).trim();
+    if (!text) {
+      toast.info('This page has no text to copy. Scanned pages need OCR first.');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success(`Copied the text of page ${page}`);
+    } catch {
+      toast.error("Couldn't copy to the clipboard.");
+    }
+  };
+
   return (
     <div className="flex h-[calc(100vh-4rem)] flex-col">
       <ReaderToolbar
@@ -227,10 +275,29 @@ export const ReaderView = ({ doc, title, downloadUrl }: ReaderViewProps) => {
           setBookmarks(next);
           toast.success(next.some((b) => b.page === page) ? `Bookmarked page ${page}` : 'Bookmark removed');
         }}
+        onReadAloud={
+          readAloud.supported
+            ? () => (readAloud.status === 'idle' ? void readAloud.start(page) : readAloud.stop())
+            : undefined
+        }
+        readAloudActive={readAloud.status !== 'idle'}
+        onPrint={print}
+        onCopyText={copyText}
         onZoom={(dir) => setZoom((z) => stepZoom(z, dir))}
         onTheme={setTheme}
         onToggleThumbs={() => setPanelOpen((o) => !o)}
       />
+      {readAloud.status !== 'idle' && (
+        <ReadAloudBar
+          status={readAloud.status}
+          page={readAloud.page}
+          rate={readAloud.rate}
+          onPause={readAloud.pause}
+          onResume={readAloud.resume}
+          onStop={readAloud.stop}
+          onRate={readAloud.setRate}
+        />
+      )}
       {searchOpen && (
         <ReaderSearchBar
           query={query}

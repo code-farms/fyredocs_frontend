@@ -9,12 +9,14 @@ import { ReaderSourceError } from '@/lib/reader/source';
 
 const mockOpen = vi.fn();
 const mockRender = vi.fn();
+const mockPermissions = vi.hoisted(() => vi.fn(() => null as null | Record<string, boolean>));
 vi.mock('@/lib/pdf/pdfjs', async (orig) => ({
   ...(await orig<typeof import('@/lib/pdf/pdfjs')>()),
   openPdf: (...a: unknown[]) => mockOpen(...a),
   renderPage: (...a: unknown[]) => mockRender(...a),
   pageSize: async () => ({ width: 600, height: 800 }),
   readOutline: async () => [],
+  readPermissions: async () => mockPermissions(),
   docFingerprint: () => 'fp-test',
   pageTextLayer: async () => ({ text: '', offsets: [], items: [] }),
 }));
