@@ -1,39 +1,53 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { Copy, FileDown, Layers, LogIn, RotateCcw, Sparkles, Square, X } from 'lucide-react';
+import { Copy, FileDown, GraduationCap, Layers, LogIn, RotateCcw, Sparkles, Square, Wand2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Text } from '@/components/ui/typography';
+import { AskChat } from './AskChat';
 import { CitedText } from './CitedText';
+import { RewriteDialog } from './RewriteDialog';
 import { useAuth } from '@/auth/useAuth';
 import { useAiOp } from '@/hooks/useAiOp';
 import { useAiQuota } from '@/hooks/useAiQuota';
 import { createBackendProvider } from '@/lib/ai/backendProvider';
 import { checkCost, estimateRun, formatTokens } from '@/lib/ai/cost';
-import { parseList } from '@/lib/ai/parse';
+import { flashcardsToMarkdown, parseFlashcards, parseList } from '@/lib/ai/parse';
 import { collectAiText, getAiProvider, registerAiProvider, type AiOp, type AiPage, type AiRequest } from '@/lib/ai/provider';
 import { AiRequestError, buildAiRequest, chunkForMapReduce, summariesAsPages } from '@/lib/ai/request';
+import { translationForDisplay } from '@/lib/ai/translation';
 import { AI_MAX_PAGES } from '@/lib/budgets';
 import { humanizeJobFailure } from '@/lib/jobErrors';
 import { toast } from '@/lib/toast';
+import type { FlashcardsState } from '@/pages/FlashcardsPage';
 
 // One backend provider for the whole web app (the app registers its own in
 // app/_layout.tsx). Module scope: it carries the docRef cache across runs.
 if (!getAiProvider()) registerAiProvider(createBackendProvider());
 
-type ReadingOp = Extract<AiOp, 'summarize' | 'keyPoints' | 'explain' | 'actionItems'>;
+type DocOp = Exclude<AiOp, 'ask' | 'rewrite'>;
 
-const OPS: { op: ReadingOp; label: string }[] = [
+const OPS: { op: DocOp; label: string }[] = [
   { op: 'summarize', label: 'Summarize' },
   { op: 'keyPoints', label: 'Key points' },
   { op: 'explain', label: 'Explain' },
   { op: 'actionItems', label: 'Action items' },
+  { op: 'notes', label: 'Study notes' },
+  { op: 'flashcards', label: 'Flashcards' },
+  { op: 'translate', label: 'Translate…' },
 ];
 
 const LIST_OPS = new Set<AiOp>(['keyPoints', 'actionItems']);
+
+/** Same list as the app's AiPanel; anything else via "Other…". */
+const LANGUAGES = ['English', 'Hindi', 'Spanish', 'French', 'German', 'Portuguese', 'Arabic', 'Bengali', 'Chinese', 'Japanese'];
+const OTHER = '__other';
+/** ai-service caps targetLang at 40 characters. */
+const MAX_LANG = 40;
 
 type Scope = 'document' | 'page' | 'range';
 
@@ -56,8 +70,8 @@ const collectPages = async (getPageText: AiPanelProps['getPageText'], from: numb
   return out;
 };
 
-const download = (name: string, text: string) => {
-  const url = URL.createObjectURL(new Blob([text], { type: 'text/plain;charset=utf-8' }));
+const download = (name: string, text: string, type = 'text/plain') => {
+  const url = URL.createObjectURL(new Blob([text], { type: `${type};charset=utf-8` }));
   const a = document.createElement('a');
   a.href = url;
   a.download = name;
@@ -66,9 +80,9 @@ const download = (name: string, text: string) => {
 };
 
 /**
- * The reader's AI side panel (the app's AiPanel, reading ops only): summary,
- * key points, explanation and action items over the PDF's text layer, with
- * page citations that jump the reader.
+ * The reader's AI side panel (the app's AiPanel): reading ops, Ask,
+ * flashcards, translation and Simplify over the PDF's text layer, with page
+ * citations that jump the reader.
  *
  * Cost honesty, as in the app: each run is estimated the way the server
  * reserves it; a run the quota can't cover is refused up front with the reset
@@ -78,16 +92,21 @@ const download = (name: string, text: string) => {
 export const AiPanel = ({ pageCount, currentPage, title, getPageText, onCite, onClose }: AiPanelProps) => {
   const { isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const quota = useAiQuota(isAuthenticated);
   const ai = useAiOp();
   const overBudget = pageCount > AI_MAX_PAGES;
   const [scope, setScope] = useState<Scope>(overBudget ? 'page' : 'document');
   const [range, setRange] = useState({ from: '1', to: String(Math.min(pageCount, AI_MAX_PAGES)) });
-  const [lastOp, setLastOp] = useState<ReadingOp | null>(null);
-  const [scopeLabel, setScopeLabel] = useState('');
+  const [lastOp, setLastOp] = useState<DocOp | null>(null);
+  const [resultLabel, setResultLabel] = useState('');
   const [pending, setPending] = useState<{ message: string; go: () => void } | null>(null);
   const [parts, setParts] = useState<{ done: number; total: number } | null>(null);
   const [noText, setNoText] = useState(false);
+  const [langOpen, setLangOpen] = useState(false);
+  const [lang, setLang] = useState('Hindi');
+  const [otherLang, setOtherLang] = useState('');
+  const [rewriteOpen, setRewriteOpen] = useState(false);
 
   const header = (
     <div className="flex items-center gap-2 border-b px-4 py-3">
@@ -106,7 +125,7 @@ export const AiPanel = ({ pageCount, currentPage, title, getPageText, onCite, on
         <div className="space-y-3 p-6 text-center">
           <Text>Sign in to use AI</Text>
           <Text variant="body-sm" tone="muted">
-            Summaries and key points run on Fyredocs servers, so they need an account.
+            Summaries, questions and notes run on Fyredocs servers, so they need an account.
           </Text>
           <Button asChild>
             <Link to="/signin">
@@ -121,20 +140,30 @@ export const AiPanel = ({ pageCount, currentPage, title, getPageText, onCite, on
 
   const refreshQuota = () => void queryClient.invalidateQueries({ queryKey: ['ai', 'quota'] });
 
-  const scopePages = (): { from: number; to: number; label: string } | null => {
-    if (scope === 'document') return { from: 1, to: pageCount, label: 'Whole document' };
-    if (scope === 'page') return { from: currentPage, to: currentPage, label: `Page ${currentPage}` };
-    const from = Number(range.from);
-    const to = Number(range.to);
-    if (!Number.isInteger(from) || !Number.isInteger(to) || from < 1 || to > pageCount || from > to) {
-      toast.error(`Enter a page range between 1 and ${pageCount}.`);
-      return null;
+  /** The chosen scope's pages, or null after telling the user why not. */
+  const scopePages = async (): Promise<{ pages: AiPage[]; label: string } | null> => {
+    let from = 1;
+    let to = pageCount;
+    let label = 'Whole document';
+    if (scope === 'page') {
+      from = to = currentPage;
+      label = `Page ${currentPage}`;
+    } else if (scope === 'range') {
+      from = Number(range.from);
+      to = Number(range.to);
+      if (!Number.isInteger(from) || !Number.isInteger(to) || from < 1 || to > pageCount || from > to) {
+        toast.error(`Enter a page range between 1 and ${pageCount}.`);
+        return null;
+      }
+      if (to - from + 1 > AI_MAX_PAGES) {
+        toast.error(`AI reads up to ${AI_MAX_PAGES} pages at a time — pick a shorter range.`);
+        return null;
+      }
+      label = from === to ? `Page ${from}` : `Pages ${from}–${to}`;
     }
-    if (to - from + 1 > AI_MAX_PAGES) {
-      toast.error(`AI reads up to ${AI_MAX_PAGES} pages at a time — pick a shorter range.`);
-      return null;
-    }
-    return { from, to, label: from === to ? `Page ${from}` : `Pages ${from}–${to}` };
+    const pages = await collectPages(getPageText, from, to);
+    setNoText(pages.length === 0);
+    return pages.length ? { pages, label } : null;
   };
 
   /** Cost gate; `go` runs immediately or after the inline confirmation. */
@@ -159,29 +188,33 @@ export const AiPanel = ({ pageCount, currentPage, title, getPageText, onCite, on
     go();
   };
 
-  const runOp = async (op: ReadingOp) => {
-    const target = scopePages();
+  const runOp = async (op: DocOp, targetLang?: string) => {
+    const target = await scopePages();
     if (!target) return;
-    const pages = await collectPages(getPageText, target.from, target.to);
-    if (pages.length === 0) {
-      setNoText(true);
-      return;
-    }
-    setNoText(false);
     let request: AiRequest;
     try {
-      request = buildAiRequest(op, pages);
+      request = buildAiRequest(op, target.pages, { targetLang });
     } catch (err) {
       toast.error(err instanceof AiRequestError ? err.message : "Couldn't start that.");
       return;
     }
     gate([request], 1, async () => {
       setPending(null);
+      setLangOpen(false);
       setLastOp(op);
-      setScopeLabel(target.label);
+      setResultLabel(targetLang ? `${target.label} → ${targetLang}` : target.label);
       await ai.run(request);
       refreshQuota();
     });
+  };
+
+  const translate = () => {
+    const target = (lang === OTHER ? otherLang : lang).trim().slice(0, MAX_LANG);
+    if (!target) {
+      toast.error('Enter a language to translate into.');
+      return;
+    }
+    void runOp('translate', target);
   };
 
   /** Explicit map-reduce over the page budget: summarize each part, then the summaries. */
@@ -189,17 +222,15 @@ export const AiPanel = ({ pageCount, currentPage, title, getPageText, onCite, on
     const provider = getAiProvider();
     if (!provider) return;
     const pages = await collectPages(getPageText, 1, pageCount);
-    if (pages.length === 0) {
-      setNoText(true);
-      return;
-    }
+    setNoText(pages.length === 0);
+    if (pages.length === 0) return;
     const chunks = chunkForMapReduce(pages);
     const requests = chunks.map((c) => buildAiRequest('summarize', c));
     gate(requests, chunks.length + 1, async () => {
       setPending(null);
       ai.reset();
       setLastOp('summarize');
-      setScopeLabel('Whole document (in parts)');
+      setResultLabel('Whole document (in parts)');
       setParts({ done: 0, total: chunks.length });
       const summaries: string[] = [];
       for (let i = 0; i < requests.length; i++) {
@@ -221,14 +252,24 @@ export const AiPanel = ({ pageCount, currentPage, title, getPageText, onCite, on
 
   const running = ai.state.status === 'running' || parts !== null;
   const answer = ai.state.text;
-  const opLabel = OPS.find((o) => o.op === lastOp)?.label ?? '';
+  const opLabel = OPS.find((o) => o.op === lastOp)?.label.replace('…', '') ?? '';
+  const cards = lastOp === 'flashcards' && ai.state.status === 'done' ? parseFlashcards(answer) : [];
+  const shownText = lastOp === 'translate' ? translationForDisplay(answer) : answer;
 
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(answer);
+      await navigator.clipboard.writeText(shownText);
       toast.success('Copied to clipboard');
     } catch {
       toast.error("Couldn't copy the text.");
+    }
+  };
+
+  const saveFile = () => {
+    if (lastOp === 'flashcards') {
+      download(`${title} — Flashcards.md`, flashcardsToMarkdown(title, cards), 'text/markdown');
+    } else {
+      download(`${title} — ${lastOp === 'translate' ? resultLabel.split('→ ')[1] ?? opLabel : opLabel}.txt`, shownText);
     }
   };
 
@@ -241,6 +282,25 @@ export const AiPanel = ({ pageCount, currentPage, title, getPageText, onCite, on
       );
     }
     if (running && !answer) return <Text tone="muted">Reading the document…</Text>;
+    if (lastOp === 'flashcards') {
+      if (running) return <Text tone="muted">Writing flashcards…</Text>;
+      return cards.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <Text variant="body-sm" className="flex-1">
+            {cards.length} flashcards ready.
+          </Text>
+          <Button
+            size="sm"
+            onClick={() => navigate('/ai/flashcards', { state: { title, cards } satisfies FlashcardsState })}
+          >
+            <GraduationCap aria-hidden />
+            Review
+          </Button>
+        </div>
+      ) : (
+        <Text tone="muted">No flashcards came back — try again or pick different pages.</Text>
+      );
+    }
     if (lastOp && LIST_OPS.has(lastOp) && ai.state.status === 'done') {
       const items = parseList(answer);
       return items.length === 0 ? (
@@ -256,8 +316,8 @@ export const AiPanel = ({ pageCount, currentPage, title, getPageText, onCite, on
       );
     }
     return (
-      <div className="space-y-3 whitespace-pre-wrap text-body-sm">
-        <CitedText text={answer} pageCount={pageCount} onCite={onCite} />
+      <div className="whitespace-pre-wrap text-body-sm">
+        {lastOp === 'translate' ? shownText : <CitedText text={answer} pageCount={pageCount} onCite={onCite} />}
       </div>
     );
   };
@@ -307,34 +367,6 @@ export const AiPanel = ({ pageCount, currentPage, title, getPageText, onCite, on
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-2">
-          {OPS.map(({ op, label }) => (
-            <Button key={op} variant="outline" size="sm" disabled={running} onClick={() => void runOp(op)}>
-              {label}
-            </Button>
-          ))}
-          {overBudget && (
-            <Button variant="outline" size="sm" className="col-span-2" disabled={running} onClick={() => void summarizeInParts()}>
-              <Layers aria-hidden />
-              Summarize whole document in parts
-            </Button>
-          )}
-        </div>
-
-        {pending && (
-          <div role="alertdialog" aria-label="Confirm AI request" className="space-y-3 rounded-lg border bg-muted/50 p-3">
-            <Text variant="body-sm">{pending.message}</Text>
-            <div className="flex gap-2">
-              <Button size="sm" onClick={pending.go}>
-                Run
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => setPending(null)}>
-                Cancel
-              </Button>
-            </div>
-          </div>
-        )}
-
         {noText && (
           <div className="rounded-lg border bg-muted/50 p-3">
             <Text variant="body-sm">These pages have no text layer, so AI can't read them.</Text>
@@ -344,48 +376,135 @@ export const AiPanel = ({ pageCount, currentPage, title, getPageText, onCite, on
           </div>
         )}
 
-        {(lastOp || running) && (
-          <section className="space-y-3 rounded-lg border p-3" aria-live="polite">
-            <div className="flex items-center gap-2">
-              <Text variant="body-sm" className="flex-1 font-medium">
-                {opLabel} · {scopeLabel}
-              </Text>
-              {running && (
-                <Button variant="ghost" size="sm" onClick={ai.stop}>
-                  <Square aria-hidden />
-                  Stop
+        <Tabs defaultValue="document">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="document">Document</TabsTrigger>
+            <TabsTrigger value="ask">Ask</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="document" className="space-y-4">
+            <div className="grid grid-cols-2 gap-2">
+              {OPS.map(({ op, label }) => (
+                <Button
+                  key={op}
+                  variant={lastOp === op ? 'secondary' : 'outline'}
+                  size="sm"
+                  disabled={running}
+                  onClick={() => (op === 'translate' ? setLangOpen((o) => !o) : void runOp(op))}
+                >
+                  {label}
+                </Button>
+              ))}
+              <Button variant="outline" size="sm" disabled={running} onClick={() => setRewriteOpen(true)}>
+                <Wand2 aria-hidden />
+                Simplify text…
+              </Button>
+              {overBudget && (
+                <Button variant="outline" size="sm" className="col-span-2" disabled={running} onClick={() => void summarizeInParts()}>
+                  <Layers aria-hidden />
+                  Summarize whole document in parts
                 </Button>
               )}
             </div>
-            {ai.state.status === 'error' ? (
-              <div className="space-y-2">
-                <Text variant="body-sm" className="text-destructive">
-                  {ai.state.error}
-                </Text>
-                {lastOp && (
-                  <Button variant="outline" size="sm" onClick={() => void runOp(lastOp)}>
-                    <RotateCcw aria-hidden />
-                    Try again
-                  </Button>
+
+            {langOpen && (
+              <div className="space-y-2 rounded-lg border p-3">
+                <Select value={lang} onValueChange={setLang}>
+                  <SelectTrigger aria-label="Translate into">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LANGUAGES.map((l) => (
+                      <SelectItem key={l} value={l}>
+                        {l}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value={OTHER}>Other…</SelectItem>
+                  </SelectContent>
+                </Select>
+                {lang === OTHER && (
+                  <Input
+                    aria-label="Other language"
+                    placeholder="e.g. Marathi"
+                    maxLength={MAX_LANG}
+                    value={otherLang}
+                    onChange={(e) => setOtherLang(e.target.value)}
+                  />
                 )}
-              </div>
-            ) : (
-              result()
-            )}
-            {ai.state.status === 'done' && answer && (
-              <div className="flex gap-2">
-                <Button variant="ghost" size="sm" onClick={() => void copy()}>
-                  <Copy aria-hidden />
-                  Copy
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => download(`${title} — ${opLabel}.txt`, answer)}>
-                  <FileDown aria-hidden />
-                  Download .txt
+                <Button size="sm" onClick={translate} disabled={running}>
+                  Translate
                 </Button>
               </div>
             )}
-          </section>
-        )}
+
+            {pending && (
+              <div role="alertdialog" aria-label="Confirm AI request" className="space-y-3 rounded-lg border bg-muted/50 p-3">
+                <Text variant="body-sm">{pending.message}</Text>
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={pending.go}>
+                    Run
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setPending(null)}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {(lastOp || running) && (
+              <section className="space-y-3 rounded-lg border p-3" aria-live="polite">
+                <div className="flex items-center gap-2">
+                  <Text variant="body-sm" className="flex-1 font-medium">
+                    {opLabel} · {resultLabel}
+                  </Text>
+                  {running && (
+                    <Button variant="ghost" size="sm" onClick={ai.stop}>
+                      <Square aria-hidden />
+                      Stop
+                    </Button>
+                  )}
+                </div>
+                {ai.state.status === 'error' ? (
+                  <div className="space-y-2">
+                    <Text variant="body-sm" className="text-destructive">
+                      {ai.state.error}
+                    </Text>
+                    {lastOp && lastOp !== 'translate' && (
+                      <Button variant="outline" size="sm" onClick={() => void runOp(lastOp)}>
+                        <RotateCcw aria-hidden />
+                        Try again
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  result()
+                )}
+                {ai.state.status === 'done' && answer && (lastOp !== 'flashcards' || cards.length > 0) && (
+                  <div className="flex gap-2">
+                    {lastOp !== 'flashcards' && (
+                      <Button variant="ghost" size="sm" onClick={() => void copy()}>
+                        <Copy aria-hidden />
+                        Copy
+                      </Button>
+                    )}
+                    <Button variant="ghost" size="sm" onClick={saveFile}>
+                      <FileDown aria-hidden />
+                      {lastOp === 'flashcards' ? 'Download .md' : 'Download .txt'}
+                    </Button>
+                  </div>
+                )}
+              </section>
+            )}
+          </TabsContent>
+
+          <TabsContent value="ask">
+            <AskChat
+              getPages={() => scopePages().then((t) => t?.pages ?? null)}
+              pageCount={pageCount}
+              onCite={onCite}
+            />
+          </TabsContent>
+        </Tabs>
 
         {quota.data && (
           <Text variant="caption" tone="muted">
@@ -394,6 +513,7 @@ export const AiPanel = ({ pageCount, currentPage, title, getPageText, onCite, on
           </Text>
         )}
       </div>
+      <RewriteDialog open={rewriteOpen} onOpenChange={setRewriteOpen} />
     </aside>
   );
 };

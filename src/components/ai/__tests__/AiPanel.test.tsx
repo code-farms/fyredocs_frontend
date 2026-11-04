@@ -100,3 +100,63 @@ describe('AiPanel', () => {
     expect(await screen.findByRole('link', { name: /OCR first/ })).toHaveAttribute('href', '/ocr');
   });
 });
+
+describe('AiPanel — W9 ops', () => {
+  beforeEach(() => {
+    mockAuth.isAuthenticated = true;
+    mockQuota.data = undefined;
+    Object.values(mockToast).forEach((f) => f.mockReset());
+  });
+  afterEach(() => registerAiProvider(null));
+
+  it('translates into the chosen language and shows page headings', async () => {
+    const stub = createStubProvider({ chunks: () => ['<<page 1>>\nपरिचय\n<<page 2>>\nकिराया'] });
+    registerAiProvider(stub);
+    renderPanel();
+    await userEvent.click(screen.getByRole('button', { name: 'Translate…' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Translate' }));
+    expect(await screen.findByText(/Page 1\s+परिचय/)).toBeInTheDocument();
+    expect(stub.calls[0]).toMatchObject({ op: 'translate', targetLang: 'Hindi' });
+    expect(screen.getByText(/Whole document → Hindi/)).toBeInTheDocument();
+  });
+
+  it('turns flashcards into a review link', async () => {
+    registerAiProvider(createStubProvider({ chunks: () => ['Q: What is rent?\nA: Monthly payment\n\nQ: Term?\nA: 11 months'] }));
+    renderPanel();
+    await userEvent.click(screen.getByRole('button', { name: 'Flashcards' }));
+    expect(await screen.findByText('2 flashcards ready.')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /Review/ }));
+    expect(window.location.pathname).toBe('/ai/flashcards');
+  });
+
+  it('asks follow-ups with the earlier exchange as history', async () => {
+    const stub = createStubProvider({ chunks: (r) => [r.history?.length ? 'Second answer [p.3]' : 'First answer [p.2]'] });
+    registerAiProvider(stub);
+    renderPanel();
+    await userEvent.click(screen.getByRole('tab', { name: 'Ask' }));
+    const box = screen.getByRole('textbox', { name: 'Question about this document' });
+    await userEvent.type(box, 'When is rent due?{Enter}');
+    expect(await screen.findByText(/First answer/)).toBeInTheDocument();
+    await userEvent.type(box, 'And termination?{Enter}');
+    expect(await screen.findByText(/Second answer/)).toBeInTheDocument();
+    expect(stub.calls[1]).toMatchObject({
+      op: 'ask',
+      question: 'And termination?',
+      history: [
+        { role: 'user', text: 'When is rent due?' },
+        { role: 'assistant', text: 'First answer [p.2]' },
+      ],
+    });
+  });
+
+  it('simplifies a pasted passage without sending the document', async () => {
+    const stub = createStubProvider({ chunks: () => ['Plain words.'] });
+    registerAiProvider(stub);
+    renderPanel();
+    await userEvent.click(screen.getByRole('button', { name: /Simplify text/ }));
+    await userEvent.type(screen.getByRole('textbox', { name: 'Passage to simplify' }), 'Heretofore the lessee shall…');
+    await userEvent.click(screen.getByRole('button', { name: 'Simplify' }));
+    expect(await screen.findByText('Plain words.')).toBeInTheDocument();
+    expect(stub.calls[0]).toMatchObject({ op: 'rewrite', pages: [], passage: 'Heretofore the lessee shall…' });
+  });
+});
