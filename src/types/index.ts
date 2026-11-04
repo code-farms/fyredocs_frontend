@@ -195,6 +195,14 @@ export interface JobResult {
   /** Total input size; set only when the output size is known, for showing savings. */
   originalSize?: number;
   expiresAt: Date;
+  /** Per-page notes from the worker (job metadata.warnings), e.g. glare on a scan page. */
+  warnings?: JobWarning[];
+}
+
+export interface JobWarning {
+  /** 1-based page number. */
+  page: number;
+  code: string;
 }
 
 export interface Job {
@@ -294,9 +302,16 @@ export interface ExtractPagesOptions {
   pages: string; // Comma-separated page numbers or ranges, e.g., "1,3,5-7"
 }
 
+export type ScanPageSize = 'auto' | 'a4' | 'letter' | 'id' | 'card';
+
+export type ScanCleanup = Partial<Record<'shadows' | 'background' | 'fingers' | 'holes' | 'glare' | 'auto', boolean>>;
+
 export interface ScanToPdfOptions {
   ocr?: boolean; // Apply OCR to make text searchable
   language?: string; // OCR language code
+  pageSize?: ScanPageSize;
+  /** One entry per input image, index-aligned; the backend reads cleanup only from here. */
+  pages?: { cleanup: ScanCleanup }[];
 }
 
 export interface UnlockPdfOptions {

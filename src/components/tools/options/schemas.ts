@@ -170,6 +170,13 @@ export const PANEL_SCHEMAS: Record<OptionsPanelId, z.ZodTypeAny> = {
   scan: z.object({
     ocr: z.boolean(),
     language: z.string().min(1),
+    pageSize: z.enum(['auto', 'a4', 'letter', 'id', 'card']),
+    cleanShadows: z.boolean(),
+    cleanBackground: z.boolean(),
+    cleanFingers: z.boolean(),
+    cleanHoles: z.boolean(),
+    cleanGlare: z.boolean(),
+    cleanAuto: z.boolean(),
   }),
 
   'convert-info': z.object({}),
@@ -205,7 +212,17 @@ export const PANEL_DEFAULTS: Record<OptionsPanelId, Record<string, unknown>> = {
   },
   unlock: { password: '' },
   'page-numbers': { position: 'bc', startNumber: 1, fontSize: 12, format: '{n}' },
-  scan: { ocr: false, language: 'eng' },
+  scan: {
+    ocr: false,
+    language: 'eng',
+    pageSize: 'auto',
+    cleanShadows: false,
+    cleanBackground: false,
+    cleanFingers: false,
+    cleanHoles: false,
+    cleanGlare: false,
+    cleanAuto: false,
+  },
   'convert-info': {},
 };
 
@@ -218,4 +235,26 @@ export const OCR_LANGUAGES = [
   { value: 'eng', label: 'English' },
   { value: 'hin', label: 'Hindi' },
   { value: 'eng+hin', label: 'English + Hindi' },
+] as const;
+
+/** Scan page sizes; values mirror scanPageSizes in job-service/handlers/tool_options.go. */
+export const SCAN_PAGE_SIZES = [
+  { value: 'auto', label: 'Auto (fit each image)' },
+  { value: 'a4', label: 'A4' },
+  { value: 'letter', label: 'Letter' },
+  { value: 'id', label: 'ID card' },
+  { value: 'card', label: 'Business card' },
+] as const;
+
+/**
+ * Scan clean-up switches. `key` is the backend's pages[i].cleanup field (the
+ * job-service validator rejects any other key); `field` is the form value.
+ */
+export const SCAN_CLEANUP = [
+  { key: 'shadows', field: 'cleanShadows', label: 'Deep shadow removal' },
+  { key: 'background', field: 'cleanBackground', label: 'Clean background (paper → white)' },
+  { key: 'fingers', field: 'cleanFingers', label: 'Remove fingers at the edges' },
+  { key: 'holes', field: 'cleanHoles', label: 'Remove punch holes' },
+  { key: 'glare', field: 'cleanGlare', label: 'Reduce glare' },
+  { key: 'auto', field: 'cleanAuto', label: 'Auto clean-up (even lighting and contrast)' },
 ] as const;

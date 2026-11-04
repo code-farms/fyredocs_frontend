@@ -456,7 +456,9 @@ export const docs: DocEntry[] = [
           headers: ['Option', 'Description'],
           rows: [
             ['OCR', 'Enable to add a searchable text layer so you can select and search text in the output PDF'],
-            ['Language', 'Choose the language for OCR text recognition — matching the correct language improves accuracy'],
+            ['Language', 'English, Hindi, or English + Hindi for mixed documents'],
+            ['Page size', 'Auto fits each image; A4, Letter, ID card and Business card place the image on a fixed page'],
+            ['Clean-up', 'Shadow removal, clean background, finger and punch-hole removal, glare reduction and auto clean-up — applied to every image'],
           ],
         },
       },
@@ -467,7 +469,7 @@ export const docs: DocEntry[] = [
         items: [
           'Upload up to 20 images (JPG, PNG, or WebP, max 20 MB each)',
           'Reorder the images if needed — each image becomes one page in order',
-          'Optionally enable OCR and select the document language',
+          'Optionally pick a page size and clean-up options, and enable OCR with the document language',
           'Click "Convert" to create the PDF',
           'Download the resulting PDF',
         ],

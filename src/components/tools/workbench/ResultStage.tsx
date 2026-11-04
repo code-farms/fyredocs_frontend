@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
-import { CheckCircle2, Download, RotateCcw, ArrowRight } from 'lucide-react';
+import { CheckCircle2, Download, RotateCcw, ArrowRight, TriangleAlert } from 'lucide-react';
 import { Job, ToolDefinition } from '@/types';
+import { warningMessages } from '@/lib/jobWarnings';
 import { Button } from '@/components/ui/button';
 import { ErrorState } from '@/components/common/ErrorState';
 import { ToolIcon } from '@/components/icons/ToolIcon';
@@ -76,6 +77,7 @@ export const ResultStage = ({ tool, job, onStartOver, onRetry, className }: Resu
   };
 
   const retention = retentionCopy(result.expiresAt);
+  const notes = warningMessages(result.warnings);
   const savings = savingsPercent(result.originalSize, result.fileSize);
   const nextTools = getToolsByNavGroup(tool.navGroup)
     .filter((t) => t.id !== tool.id)
@@ -119,6 +121,19 @@ export const ResultStage = ({ tool, job, onStartOver, onRetry, className }: Resu
             </Button>
           </div>
         </div>
+
+        {notes.map((note) => (
+          <div
+            key={note}
+            role="status"
+            className="mt-4 flex items-start gap-2 rounded-lg border border-warning/30 bg-warning-subtle p-3 text-warning-subtle-foreground"
+          >
+            <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+            <Text variant="body-sm" as="span">
+              {note}
+            </Text>
+          </div>
+        ))}
 
         <Button variant="outline" className="mt-4 w-full" onClick={onStartOver}>
           <RotateCcw aria-hidden />

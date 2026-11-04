@@ -33,7 +33,7 @@
  * not attempted here.
  */
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Job, JobState, PasswordProtectOptions, SplitOptions, WatermarkOptions, ToolId, ToolOptions } from '@/types';
+import { Job, JobState, PasswordProtectOptions, ScanToPdfOptions, SplitOptions, WatermarkOptions, ToolId, ToolOptions } from '@/types';
 import { apiJson, apiRequest, buildApiUrl } from '@/lib/apiClient';
 import { buildDownloadPath, buildJobPath } from '@/lib/toolApi';
 import { setGuestToken } from '@/lib/guestToken';
@@ -133,9 +133,14 @@ export const normalizeOptions = (toolId: ToolId, options: ToolOptions) => {
       };
     }
     case 'scan-to-pdf': {
-      const opts = options as { ocr?: boolean; language?: string };
-      if (!opts.ocr) return undefined;
-      return { ocr: true, ...(opts.language ? { language: opts.language } : {}) };
+      const opts = options as ScanToPdfOptions;
+      const out = {
+        ...(opts.ocr ? { ocr: true, ...(opts.language ? { language: opts.language } : {}) } : {}),
+        ...(opts.pageSize && opts.pageSize !== 'auto' ? { pageSize: opts.pageSize } : {}),
+        ...(opts.pages?.length ? { pages: opts.pages } : {}),
+      };
+      // Nothing chosen → no options key at all, as before.
+      return Object.keys(out).length ? out : undefined;
     }
     case 'password-protect': {
       // The backend rejects mixing the legacy `password` with userPassword/

@@ -1,4 +1,5 @@
-import { ToolDefinition, ToolOptions, ConvertOptions, PdfEncryption } from '@/types';
+import { ToolDefinition, ToolOptions, ConvertOptions, PdfEncryption, ScanCleanup, ScanPageSize } from '@/types';
+import { SCAN_CLEANUP } from '../options/schemas';
 import { OptionsFormValues } from '../options/types';
 
 /**
@@ -62,10 +63,18 @@ export const buildOptions = (
 
     case 'scan': {
       const ocr = Boolean(values.ocr);
-      // ScanToPdfTool sent { ocr, language: ocr ? language : undefined }.
+      const pageSize = values.pageSize as ScanPageSize | undefined;
+      const cleanup: ScanCleanup = {};
+      for (const { key, field } of SCAN_CLEANUP) {
+        if (values[field]) cleanup[key] = true;
+      }
+      // Clean-up is per page on the backend (no top-level switch), so the same
+      // settings are repeated once per image, in upload order.
       return {
         ocr,
         language: ocr ? (values.language as string) : undefined,
+        ...(pageSize && pageSize !== 'auto' ? { pageSize } : {}),
+        ...(Object.keys(cleanup).length ? { pages: fileIds.map(() => ({ cleanup })) } : {}),
       } as ToolOptions;
     }
 

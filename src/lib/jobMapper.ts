@@ -1,4 +1,4 @@
-import { Job, JobState, ToolId, ToolOptions } from '@/types';
+import { Job, JobState, JobWarning, ToolId, ToolOptions } from '@/types';
 import { buildApiUrl } from '@/lib/apiClient';
 import { buildDownloadPath } from '@/lib/toolApi';
 import { friendlyError } from '@/lib/friendlyError';
@@ -50,7 +50,19 @@ export interface ApiJob {
   CompletedAt?: string | null;
   expiresAt?: string | null;
   ExpiresAt?: string | null;
+  /** Worker metadata (job-service models.Job.Metadata); list endpoints may omit it. */
+  metadata?: { warnings?: unknown } | null;
 }
+
+/** Valid `{page, code}` entries from metadata.warnings; anything malformed is dropped. */
+export const parseWarnings = (raw: unknown): JobWarning[] => {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((w) => {
+    const page = Number((w as { page?: unknown })?.page);
+    const code = (w as { code?: unknown })?.code;
+    return Number.isInteger(page) && page > 0 && typeof code === 'string' ? [{ page, code }] : [];
+  });
+};
 
 export const parseDate = (value: unknown, fallback: Date) => {
   if (typeof value === 'string') {
@@ -172,6 +184,7 @@ export const mapApiJob = (
       ? parseDate(apiJob.completedAt ?? apiJob.CompletedAt, updatedAt)
       : undefined;
   const expiresAt = parseDate(apiJob.expiresAt ?? apiJob.ExpiresAt, updatedAt);
+  const warnings = parseWarnings(apiJob.metadata?.warnings);
 
   return {
     id,
@@ -194,6 +207,7 @@ export const mapApiJob = (
             fileSize,
             originalSize,
             expiresAt,
+            ...(warnings.length ? { warnings } : {}),
           }
         : undefined,
     error:

@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { OCR_LANGUAGES, PANEL_DEFAULTS, PANEL_SCHEMAS } from '../schemas';
+import { OCR_LANGUAGES, PANEL_DEFAULTS, PANEL_SCHEMAS, SCAN_CLEANUP, SCAN_PAGE_SIZES } from '../schemas';
+import { buildOptions } from '../../workbench/buildOptions';
+import { getAllTools } from '@/config/tools';
 
 // NOTE: mirrors ocrLanguages/scanLanguages in
 // fyredocs_backend/job-service/handlers/tool_options.go — any other value
@@ -56,5 +58,30 @@ describe('password schema', () => {
       allowAssemble: false,
       encryption: 'aes-256',
     });
+  });
+});
+
+describe('scan options', () => {
+  const tool = getAllTools().find((t) => t.id === 'scan-to-pdf')!;
+
+  it('offers only page sizes and clean-up keys the backend accepts', () => {
+    // NOTE: mirrors scanPageSizes and scanCleanupPayload in job-service/handlers/tool_options.go.
+    expect(SCAN_PAGE_SIZES.map((s) => s.value)).toEqual(['auto', 'a4', 'letter', 'id', 'card']);
+    expect(SCAN_CLEANUP.map((c) => c.key)).toEqual(['shadows', 'background', 'fingers', 'holes', 'glare', 'auto']);
+    expect(PANEL_SCHEMAS.scan.safeParse(PANEL_DEFAULTS.scan).success).toBe(true);
+  });
+
+  it('repeats the clean-up once per image, in upload order', () => {
+    const values = { ...PANEL_DEFAULTS.scan, pageSize: 'card', cleanShadows: true, cleanGlare: true };
+    expect(buildOptions(tool, values, ['a', 'b', 'c'])).toEqual({
+      ocr: false,
+      language: undefined,
+      pageSize: 'card',
+      pages: [0, 1, 2].map(() => ({ cleanup: { shadows: true, glare: true } })),
+    });
+  });
+
+  it('keeps the old payload when nothing new is chosen', () => {
+    expect(buildOptions(tool, PANEL_DEFAULTS.scan, ['a'])).toEqual({ ocr: false, language: undefined });
   });
 });

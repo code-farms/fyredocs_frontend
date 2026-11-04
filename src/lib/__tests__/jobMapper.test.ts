@@ -16,3 +16,23 @@ describe('mapApiJob result sizes', () => {
     expect(job.result?.originalSize).toBeUndefined();
   });
 });
+
+describe('mapApiJob warnings', () => {
+  it('maps valid metadata.warnings and drops malformed entries', () => {
+    const job = mapApiJob(
+      {
+        ...completed,
+        metadata: { warnings: [{ page: 2, code: 'glare' }, { page: 0, code: 'glare' }, { code: 'glare' }, 'x'] },
+      },
+      'scan-to-pdf',
+      [],
+      {}
+    );
+    expect(job.result?.warnings).toEqual([{ page: 2, code: 'glare' }]);
+  });
+
+  it('omits warnings when the job has none', () => {
+    const job = mapApiJob({ ...completed, metadata: null }, 'scan-to-pdf', [], {});
+    expect(job.result).not.toHaveProperty('warnings');
+  });
+});

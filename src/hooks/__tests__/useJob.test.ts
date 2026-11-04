@@ -62,6 +62,16 @@ describe('normalizeOptions', () => {
       expect(result).toEqual({ ocr: true });
     });
 
+    it('sends page size and per-page clean-up without OCR', () => {
+      const pages = [{ cleanup: { shadows: true } }, { cleanup: { shadows: true } }];
+      const result = normalizeOptions('scan-to-pdf', { ocr: false, pageSize: 'card', pages });
+      expect(result).toEqual({ pageSize: 'card', pages });
+    });
+
+    it('drops the auto page size, which is the backend default', () => {
+      expect(normalizeOptions('scan-to-pdf', { ocr: false, pageSize: 'auto' })).toBeUndefined();
+    });
+
     it('returns ocr and language when both provided', () => {
       const result = normalizeOptions('scan-to-pdf', { ocr: true, language: 'hin' });
       expect(result).toEqual({ ocr: true, language: 'hin' });
