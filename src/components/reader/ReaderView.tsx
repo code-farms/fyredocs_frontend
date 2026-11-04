@@ -4,6 +4,8 @@ import { ReaderSearchBar } from './ReaderSearchBar';
 import { ReaderSidePanel, type SidePanelTab } from './ReaderSidePanel';
 import { ReaderToolbar } from './ReaderToolbar';
 import { ReadAloudBar } from './ReadAloudBar';
+import { AiPanel } from '@/components/ai/AiPanel';
+import { useFlags } from '@/hooks/useFlags';
 import { useReadAloud } from '@/hooks/useReadAloud';
 import { printPdfBytes } from '@/lib/reader/print';
 import type { PdfPermissions } from '@/lib/pdf/permissions';
@@ -72,6 +74,9 @@ export const ReaderView = ({ doc, title, downloadUrl }: ReaderViewProps) => {
   const layers = useRef(new Map<number, Promise<PageTextLayer>>());
   const resumeTo = useRef<number | null>(null);
   const [permissions, setPermissions] = useState<PdfPermissions | null>(null);
+  const [aiOpen, setAiOpen] = useState(false);
+  // Gated on the gateway's runtime flag (FEATURE_FLAGS_JSON), fail-closed.
+  const aiEnabled = useFlags().aiReading === true;
 
   // Page sizes start from page 1 for every page; refined near the reader below.
   useEffect(() => {
@@ -283,6 +288,8 @@ export const ReaderView = ({ doc, title, downloadUrl }: ReaderViewProps) => {
         readAloudActive={readAloud.status !== 'idle'}
         onPrint={print}
         onCopyText={copyText}
+        onAi={aiEnabled ? () => setAiOpen((o) => !o) : undefined}
+        aiOpen={aiOpen}
         onZoom={(dir) => setZoom((z) => stepZoom(z, dir))}
         onTheme={setTheme}
         onToggleThumbs={() => setPanelOpen((o) => !o)}
@@ -351,6 +358,16 @@ export const ReaderView = ({ doc, title, downloadUrl }: ReaderViewProps) => {
             ))}
           </div>
         </div>
+        {aiEnabled && aiOpen && (
+          <AiPanel
+            pageCount={doc.numPages}
+            currentPage={page}
+            title={title.replace(/\.pdf$/i, '')}
+            getPageText={getPageText}
+            onCite={goTo}
+            onClose={() => setAiOpen(false)}
+          />
+        )}
       </div>
     </div>
   );

@@ -10,6 +10,8 @@ import { ReaderSourceError } from '@/lib/reader/source';
 const mockOpen = vi.fn();
 const mockRender = vi.fn();
 const mockPermissions = vi.hoisted(() => vi.fn(() => null as null | Record<string, boolean>));
+const mockFlags = vi.hoisted(() => ({ value: {} as Record<string, boolean> }));
+vi.mock('@/hooks/useFlags', () => ({ useFlags: () => mockFlags.value }));
 vi.mock('@/lib/pdf/pdfjs', async (orig) => ({
   ...(await orig<typeof import('@/lib/pdf/pdfjs')>()),
   openPdf: (...a: unknown[]) => mockOpen(...a),

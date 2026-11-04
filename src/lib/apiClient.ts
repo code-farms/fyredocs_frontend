@@ -1,4 +1,5 @@
 import { versionPath } from '@/lib/apiVersion';
+import { createSseParser } from '@/lib/sse';
 
 type ApiRequestOptions = RequestInit & {
   skipRefresh?: boolean;
@@ -158,6 +159,14 @@ const attemptRefresh = async (): Promise<boolean> => {
   }
 };
 
+/** Joins the in-flight refresh, or starts one (see refreshPromise). */
+const refreshOnce = (): Promise<boolean> => {
+  if (!refreshPromise) {
+    refreshPromise = attemptRefresh().finally(() => { refreshPromise = null; });
+  }
+  return refreshPromise;
+};
+
 /**
  * Fetch wrapper carrying the app's auth and error conventions.
  *
@@ -196,10 +205,7 @@ export const apiRequest = async <T>(
 
   // On 401: try to refresh the access token, then retry the original request
   if (response.status === 401 && !skipRefresh) {
-    if (!refreshPromise) {
-      refreshPromise = attemptRefresh().finally(() => { refreshPromise = null; });
-    }
-    const refreshed = await refreshPromise;
+    const refreshed = await refreshOnce();
     if (refreshed) {
       return apiRequest<T>(path, { ...options, skipRefresh: true });
     }
@@ -248,4 +254,60 @@ export const apiJson = async <T>(
     ...options,
     headers,
   });
+};
+
+/**
+ * POST that consumes a Server-Sent Events response (the ai-service op stream).
+ * Each `data:` frame is JSON-parsed and handed to `onEvent`; a malformed frame
+ * is dropped, never fatal. A non-SSE 2xx (a proxy that buffered, or the
+ * server's JSON fallback) is delivered as one event. Auth semantics match
+ * apiRequest: one shared refresh on 401, then the unauthorized event.
+ *
+ * NOTE: mirrors apiStream in fyredocs_app/src/api/client.ts, which needs
+ * expo/fetch for streaming; the browser's fetch streams natively.
+ */
+export const apiStream = async (
+  path: string,
+  body: unknown,
+  onEvent: (event: unknown) => void,
+  signal?: AbortSignal,
+  skipRefresh = false
+): Promise<void> => {
+  const response = await fetch(buildApiUrl(path), {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
+    body: JSON.stringify(body),
+    signal,
+  });
+
+  if (response.status === 401 && !skipRefresh) {
+    if (await refreshOnce()) return apiStream(path, body, onEvent, signal, true);
+    window.dispatchEvent(new CustomEvent('fyredocs:unauthorized'));
+    throw await httpError(response);
+  }
+  if (!response.ok) throw await httpError(response);
+
+  const contentType = response.headers.get('content-type') ?? '';
+  if (!contentType.includes('text/event-stream') || !response.body) {
+    onEvent(await response.json());
+    return;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  const parser = createSseParser((data) => {
+    try {
+      onEvent(JSON.parse(data));
+    } catch {
+      // a malformed frame is dropped, never fatal to the stream
+    }
+  });
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    parser.push(decoder.decode(value, { stream: true }));
+  }
+  parser.push(decoder.decode());
+  parser.end();
 };

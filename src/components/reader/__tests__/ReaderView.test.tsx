@@ -7,6 +7,8 @@ import type { PDFDocumentProxy } from '@/lib/pdf/pdfjs';
 
 const pageTexts = ['Intro', 'The lease term', 'Rent and lease renewal'];
 const mockPermissions = vi.hoisted(() => vi.fn(() => null as null | Record<string, boolean>));
+const mockFlags = vi.hoisted(() => ({ value: {} as Record<string, boolean> }));
+vi.mock('@/hooks/useFlags', () => ({ useFlags: () => mockFlags.value }));
 vi.mock('@/lib/pdf/pdfjs', async (orig) => ({
   ...(await orig<typeof import('@/lib/pdf/pdfjs')>()),
   renderPage: async () => ({ promise: Promise.resolve(), cancel: vi.fn() }),
@@ -112,5 +114,24 @@ describe('ReaderView permissions and actions', () => {
     // jsdom has no speechSynthesis, which is exactly the unsupported case.
     render(<ReaderView doc={doc} title="Lease.pdf" />);
     expect(screen.queryByRole('button', { name: 'Read aloud' })).toBeNull();
+  });
+});
+
+describe('ReaderView AI gate', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.stubGlobal('IntersectionObserver', class { observe() {} disconnect() {} });
+    Element.prototype.scrollTo = vi.fn();
+  });
+
+  it('shows the AI button only when the aiReading flag is on', () => {
+    mockFlags.value = {};
+    const { unmount } = render(<ReaderView doc={doc} title="Lease.pdf" />);
+    expect(screen.queryByRole('button', { name: 'AI assistant' })).toBeNull();
+    unmount();
+    mockFlags.value = { aiReading: true };
+    render(<ReaderView doc={doc} title="Lease.pdf" />);
+    expect(screen.getByRole('button', { name: 'AI assistant' })).toBeInTheDocument();
+    mockFlags.value = {};
   });
 });
