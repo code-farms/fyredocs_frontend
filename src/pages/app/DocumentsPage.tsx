@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { LayoutGrid, List, Search, FileStack, SearchX, FolderInput, Loader2, FolderPlus, TagsIcon } from 'lucide-react';
+import { LayoutGrid, List, Search, FileStack, SearchX, FolderInput, Loader2, FolderPlus, TagsIcon, Receipt } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -26,7 +26,8 @@ import {
 import { useJobHistory } from '@/hooks/useJobHistory';
 import { useActiveOrg } from '@/components/app/ActiveOrgContext';
 import { canWrite } from '@/lib/orgsApi';
-import { bulkRegisterDocuments, type ApiDocument, type CreateDocumentInput } from '@/lib/documentsApi';
+import { bulkRegisterDocuments, listAllReceipts, type ApiDocument, type CreateDocumentInput } from '@/lib/documentsApi';
+import { expenseCsv, receiptRecords, totalsSummary } from '@/lib/expenseExport';
 import { getToolById } from '@/config/tools';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
@@ -134,6 +135,25 @@ const DocumentsPage = () => {
   };
 
   // Folders/tags are scoped to the active workspace (personal or org).
+  // Expense CSV over every receipt whose details were detected (reader → Details).
+  const exportReceipts = useMutation({
+    mutationFn: async () => receiptRecords(await listAllReceipts(activeOrgId ?? undefined)),
+    onSuccess: (records) => {
+      if (records.length === 0) {
+        toast.info('No receipts yet', 'Open a receipt in the reader and use AI → Details to add it.');
+        return;
+      }
+      const url = URL.createObjectURL(new Blob([expenseCsv(records)], { type: 'text/csv;charset=utf-8' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `expenses-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast.success(`Exported ${records.length} receipt${records.length === 1 ? '' : 's'}`, totalsSummary(records) || undefined);
+    },
+    onError: () => toast.error("The receipts couldn't be exported — try again."),
+  });
+
   const cardProps = {
     folders: folders.data,
     tags: tags.data,
@@ -174,6 +194,10 @@ const DocumentsPage = () => {
           <Button variant="outline" size="sm" onClick={() => setTagDialog(true)}>
             <TagsIcon className="h-4 w-4" aria-hidden />
             <span className="hidden sm:inline">New tag</span>
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => exportReceipts.mutate()} disabled={exportReceipts.isPending}>
+            {exportReceipts.isPending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Receipt className="h-4 w-4" aria-hidden />}
+            <span className="hidden sm:inline">Export receipts (CSV)</span>
           </Button>
           <div className="flex items-center gap-1 rounded-lg border p-0.5">
             <Button variant={view === 'grid' ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8" onClick={() => setView('grid')} aria-label="Grid view" aria-pressed={view === 'grid'}>

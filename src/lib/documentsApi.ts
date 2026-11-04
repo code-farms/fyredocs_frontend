@@ -29,6 +29,10 @@ export interface ApiDocument {
   thumbnailPath?: string;
   status: DocumentStatus;
   metadata?: Record<string, unknown>;
+  /** Saved AI extract type (document-service, web roadmap D1). */
+  docType?: string;
+  /** Saved AI extract result; never present for id_document. */
+  extraction?: unknown;
   uploadedAt?: string;
   processedAt?: string;
   createdAt: string;
@@ -47,6 +51,8 @@ export interface DocumentListParams {
   trashed?: boolean;
   /** Organization scope; omit/undefined for personal documents. */
   orgId?: string;
+  /** Only documents with this saved extract type (e.g. 'receipt'). */
+  docType?: string;
 }
 
 type Envelope<T> = { success: boolean; message: string; data: T; meta?: { total?: number; page?: number; limit?: number } };
@@ -62,6 +68,7 @@ export const listDocuments = async (params: DocumentListParams = {}): Promise<{ 
   if (params.limit) q.set('limit', String(params.limit));
   if (params.trashed) q.set('trashed', 'true');
   if (params.orgId) q.set('orgId', params.orgId);
+  if (params.docType) q.set('docType', params.docType);
   const qs = q.toString();
   try {
     const res = await apiJson<Envelope<ApiDocument[]>>(`/api/documents${qs ? `?${qs}` : ''}`);
@@ -102,6 +109,8 @@ export interface UpdateDocumentInput {
   metadata?: Record<string, unknown>;
   /** Move scope: an org id, or "" for personal. */
   organizationId?: string;
+  /** 16-hex text fingerprint for near-duplicate detection; "" clears it. */
+  simhash?: string;
 }
 
 export const updateDocument = (id: string, patch: UpdateDocumentInput, orgId?: string): Promise<ApiDocument> =>
@@ -213,4 +222,52 @@ export const bulkRegisterDocuments = async (inputs: CreateDocumentInput[]): Prom
     }
   }
   return ok;
+};
+
+// ---- AI extraction + duplicates (document-service, web roadmap D1) ----
+
+/** Saves a document's extract result. id_document is sent as docType only — the server refuses ID details. */
+export const saveDocumentExtraction = (
+  id: string,
+  docType: string,
+  extraction: unknown,
+  orgId?: string
+): Promise<void> =>
+  apiJson(`/api/documents/${id}/extraction${orgQuery(orgId)}`, {
+    method: 'PUT',
+    body: JSON.stringify(docType === 'id_document' ? { docType } : { docType, extraction }),
+  }).then(() => undefined);
+
+export interface DuplicateMatches {
+  exact: { id: string; name: string }[];
+  near: { id: string; name: string; distance?: number }[];
+  /** The document's own hash isn't computed yet, so `exact` may be incomplete. */
+  pending: boolean;
+}
+
+export const getDocumentDuplicates = (id: string, orgId?: string): Promise<DuplicateMatches> =>
+  apiJson<Envelope<DuplicateMatches>>(`/api/documents/${id}/duplicates${orgQuery(orgId)}`).then((r) => r.data);
+
+/** Server page size cap (document-service ListDocuments). */
+const MAX_PAGE = 100;
+/** Hard stop for the receipts walk: 50 pages × 100. */
+const MAX_RECEIPT_PAGES = 50;
+
+/**
+ * Every live receipt in scope, for the expense CSV. Unlike listDocuments this
+ * THROWS on failure — an export that silently came back empty would look like
+ * "you have no receipts".
+ */
+export const listAllReceipts = async (orgId?: string): Promise<ApiDocument[]> => {
+  const out: ApiDocument[] = [];
+  for (let page = 1; page <= MAX_RECEIPT_PAGES; page++) {
+    const q = new URLSearchParams({ docType: 'receipt', limit: String(MAX_PAGE), page: String(page) });
+    if (orgId) q.set('orgId', orgId);
+    const res = await apiJson<Envelope<ApiDocument[]>>(`/api/documents?${q.toString()}`);
+    const batch = res.data ?? [];
+    out.push(...batch);
+    const total = res.meta?.total ?? out.length;
+    if (batch.length < MAX_PAGE || out.length >= total) break;
+  }
+  return out;
 };

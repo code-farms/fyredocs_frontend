@@ -67,6 +67,8 @@ interface AiPanelProps {
   onClose: () => void;
   /** Downloads the PDF under another name (the extraction's suggested title). */
   onDownloadAs?: (fileName: string) => void;
+  /** Persists a detected extraction (library documents only). */
+  onExtracted?: (extraction: Extraction) => void | Promise<void>;
 }
 
 /** Pages [from..to] (1-based) as AI pages (0-based index), blank pages dropped. */
@@ -107,6 +109,7 @@ export const AiPanel = ({
   onCite,
   onClose,
   onDownloadAs,
+  onExtracted,
 }: AiPanelProps) => {
   const { isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
@@ -292,8 +295,10 @@ export const AiPanel = ({
         collectPages(getPageText, 1, Math.min(pageCount, AI_MAX_PAGES)),
         getPageImage(1),
       ]);
-      setExtraction(await requestExtraction(pages, image ? [image] : []));
+      const result = await requestExtraction(pages, image ? [image] : []);
+      setExtraction(result);
       refreshQuota();
+      void onExtracted?.(result);
     } catch (err) {
       toast.error(aiError(err));
     } finally {

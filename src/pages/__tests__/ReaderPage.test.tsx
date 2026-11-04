@@ -12,6 +12,14 @@ const mockRender = vi.fn();
 const mockPermissions = vi.hoisted(() => vi.fn(() => null as null | Record<string, boolean>));
 const mockFlags = vi.hoisted(() => ({ value: {} as Record<string, boolean> }));
 vi.mock('@/hooks/useFlags', () => ({ useFlags: () => mockFlags.value }));
+const mockAuth = vi.hoisted(() => ({ isAuthenticated: false }));
+vi.mock('@/auth/useAuth', () => ({ useAuth: () => mockAuth }));
+const mockDocsApi = vi.hoisted(() => ({
+  updateDocument: vi.fn(async () => ({})),
+  getDocumentDuplicates: vi.fn(async () => ({ exact: [], near: [], pending: false })),
+  saveDocumentExtraction: vi.fn(async () => undefined),
+}));
+vi.mock('@/lib/documentsApi', async (orig) => ({ ...(await orig<typeof import('@/lib/documentsApi')>()), ...mockDocsApi }));
 vi.mock('@/lib/pdf/pdfjs', async (orig) => ({
   ...(await orig<typeof import('@/lib/pdf/pdfjs')>()),
   openPdf: (...a: unknown[]) => mockOpen(...a),

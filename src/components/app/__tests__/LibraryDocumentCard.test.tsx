@@ -51,7 +51,7 @@ describe('LibraryDocumentCard reader link', () => {
       <LibraryDocumentCard doc={{ ...base, metadata: { jobId: 'j1', toolId: 'compress' } }} onDelete={vi.fn()} />
     );
     await openMenu();
-    expect(screen.getByRole('menuitem', { name: 'Open in reader' })).toHaveAttribute('href', '/reader?job=j1&tool=compress');
+    expect(screen.getByRole('menuitem', { name: 'Open in reader' })).toHaveAttribute('href', '/reader?job=j1&tool=compress&doc=d1');
     unmount();
 
     render(<LibraryDocumentCard doc={{ ...base, organizationId: 'org1' }} onDelete={vi.fn()} />);

@@ -55,9 +55,8 @@ function downloadUrlFor(doc: ApiDocument): string | null {
 /** Reader source: the job output when there is one, else the document's stored bytes. */
 function readerSourceFor(doc: ApiDocument): ReaderSource {
   const job = jobOf(doc);
-  return job
-    ? { kind: 'job', ...job }
-    : { kind: 'doc', id: doc.id, ...(doc.organizationId ? { orgId: doc.organizationId } : {}) };
+  const org = doc.organizationId ? { orgId: doc.organizationId } : {};
+  return job ? { kind: 'job', ...job, docId: doc.id, ...org } : { kind: 'doc', id: doc.id, ...org };
 }
 
 const DOWNLOAD_ERRORS: Record<Exclude<DocumentDownloadResult, 'started'>, string> = {

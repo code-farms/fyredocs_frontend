@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { MemoryRouter } from 'react-router-dom';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ReaderView } from '../ReaderView';
@@ -14,6 +15,14 @@ vi.mock('@/lib/annotate/savePdf', async (orig) => ({
   ...(await orig<typeof import('@/lib/annotate/savePdf')>()),
   saveAnnotatedPdf: (...a: unknown[]) => mockSave(...a),
 }));
+const mockAuth = vi.hoisted(() => ({ isAuthenticated: false }));
+vi.mock('@/auth/useAuth', () => ({ useAuth: () => mockAuth }));
+const mockDocsApi = vi.hoisted(() => ({
+  updateDocument: vi.fn(async () => ({})),
+  getDocumentDuplicates: vi.fn(async () => ({ exact: [], near: [], pending: false })),
+  saveDocumentExtraction: vi.fn(async () => undefined),
+}));
+vi.mock('@/lib/documentsApi', async (orig) => ({ ...(await orig<typeof import('@/lib/documentsApi')>()), ...mockDocsApi }));
 vi.mock('@/lib/pdf/pdfjs', async (orig) => ({
   ...(await orig<typeof import('@/lib/pdf/pdfjs')>()),
   renderPage: async () => ({ promise: Promise.resolve(), cancel: vi.fn() }),
@@ -228,5 +237,43 @@ describe('ReaderView annotate — reopen and import', () => {
     await user.upload(screen.getByLabelText('Import annotations file'), file);
     await user.click(await screen.findByRole('button', { name: 'Replace' }));
     expect(await screen.findByText(/2 marks · draft kept/)).toBeInTheDocument();
+  });
+});
+
+describe('ReaderView library document', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.stubGlobal('IntersectionObserver', class { observe() {} disconnect() {} });
+    Element.prototype.scrollTo = vi.fn();
+    mockPermissions.mockReturnValue(null);
+    Object.values(mockDocsApi).forEach((f) => f.mockClear());
+  });
+
+  it('fingerprints the text, then shows duplicates (signed in only)', async () => {
+    // Long enough text for a SimHash (≥ 40 shingles).
+    pageTexts[0] = Array.from({ length: 60 }, (_, i) => `word${i}`).join(' ');
+    mockAuth.isAuthenticated = true;
+    mockDocsApi.getDocumentDuplicates.mockResolvedValueOnce({ exact: [], near: [{ id: 'n1', name: 'Lease scan', distance: 1 }], pending: false });
+    render(
+      <MemoryRouter>
+        <ReaderView doc={doc} title="Lease.pdf" libraryDoc={{ id: 'lib-1', orgId: 'o1' }} />
+      </MemoryRouter>
+    );
+    expect(await screen.findByText(/Looks like a re-scan of “Lease scan”/)).toBeInTheDocument();
+    expect(mockDocsApi.updateDocument).toHaveBeenCalledWith('lib-1', { simhash: expect.stringMatching(/^[0-9a-f]{16}$/) }, 'o1');
+    mockAuth.isAuthenticated = false;
+    pageTexts[0] = 'Intro';
+  });
+
+  it('does nothing for guests or local files', async () => {
+    mockAuth.isAuthenticated = false;
+    render(
+      <MemoryRouter>
+        <ReaderView doc={doc} title="Lease.pdf" libraryDoc={{ id: 'lib-2' }} />
+      </MemoryRouter>
+    );
+    await new Promise((r) => setTimeout(r, 20));
+    expect(mockDocsApi.getDocumentDuplicates).not.toHaveBeenCalled();
+    expect(mockDocsApi.updateDocument).not.toHaveBeenCalled();
   });
 });

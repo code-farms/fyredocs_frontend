@@ -76,15 +76,26 @@ export const themeFilter = (theme: ReaderTheme): string | undefined => {
 
 /** Where the reader gets its bytes. A local file never touches the URL. */
 export type ReaderSource =
-  | { kind: 'job'; toolId: ToolId; jobId: string }
+  /** docId/orgId: set when the job output is also a library document (opened from the library). */
+  | { kind: 'job'; toolId: ToolId; jobId: string; docId?: string; orgId?: string }
   | { kind: 'doc'; id: string; orgId?: string };
+
+/** The library document behind a source, if any — what AI details and duplicates attach to. */
+export const libraryDocOf = (source: ReaderSource | null): { id: string; orgId?: string } | null => {
+  if (!source) return null;
+  if (source.kind === 'doc') return { id: source.id, ...(source.orgId ? { orgId: source.orgId } : {}) };
+  return source.docId ? { id: source.docId, ...(source.orgId ? { orgId: source.orgId } : {}) } : null;
+};
 
 export const readerSourceFromParams = (params: URLSearchParams): ReaderSource | null => {
   const jobId = params.get('job');
   const toolId = params.get('tool');
-  if (jobId && toolId) return { kind: 'job', toolId: toolId as ToolId, jobId };
   const docId = params.get('doc');
-  if (docId) return { kind: 'doc', id: docId, ...(params.get('org') ? { orgId: params.get('org')! } : {}) };
+  const org = params.get('org');
+  if (jobId && toolId) {
+    return { kind: 'job', toolId: toolId as ToolId, jobId, ...(docId ? { docId } : {}), ...(org ? { orgId: org } : {}) };
+  }
+  if (docId) return { kind: 'doc', id: docId, ...(org ? { orgId: org } : {}) };
   return null;
 };
 
@@ -93,6 +104,8 @@ export const readerHref = (source: ReaderSource): string => {
   if (source.kind === 'job') {
     q.set('job', source.jobId);
     q.set('tool', source.toolId);
+    if (source.docId) q.set('doc', source.docId);
+    if (source.orgId) q.set('org', source.orgId);
   } else {
     q.set('doc', source.id);
     if (source.orgId) q.set('org', source.orgId);

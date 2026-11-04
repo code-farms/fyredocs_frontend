@@ -174,11 +174,14 @@ describe('AiPanel — details and handwriting', () => {
   it('detects details from text plus a picture of page 1', async () => {
     mockAiApi.postExtract.mockResolvedValue({ docType: 'invoice', confidence: 0.9, title: 'Invoice 42', fields: { invoiceNumber: '42', total: 1180 }, tables: [] });
     const getPageImage = vi.fn(async () => 'data:image/jpeg;base64,QUJD');
-    renderPanel({ getPageImage });
+    const onExtracted = vi.fn();
+    renderPanel({ getPageImage, onExtracted });
     await userEvent.click(screen.getByRole('tab', { name: 'Details' }));
     await userEvent.click(screen.getByRole('button', { name: /Detect details/ }));
     expect(await screen.findByText('Invoice')).toBeInTheDocument();
     expect(getPageImage).toHaveBeenCalledWith(1);
+    // Library documents persist what was detected (document-service D1).
+    expect(onExtracted).toHaveBeenCalledWith(expect.objectContaining({ docType: 'invoice', title: 'Invoice 42' }));
     expect(mockAiApi.postExtract).toHaveBeenCalledWith({
       pages: [
         { index: 0, text: 'Intro page' },

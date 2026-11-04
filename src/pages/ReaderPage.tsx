@@ -9,7 +9,7 @@ import { PageLoading } from '@/components/common/LoadingState';
 import { ReaderView } from '@/components/reader/ReaderView';
 import { closePdf, openPdf, PdfOpenError, type PDFDocumentProxy } from '@/lib/pdf/pdfjs';
 import { hasNonEmbeddedFonts } from '@/lib/pdf/fonts';
-import { readerSourceFromParams } from '@/lib/reader/reader';
+import { libraryDocOf, readerSourceFromParams } from '@/lib/reader/reader';
 import { fetchSourceBytes, ReaderSourceError, sourceUrl } from '@/lib/reader/source';
 import { toast } from '@/lib/toast';
 
@@ -182,7 +182,7 @@ const ReaderPage = () => {
   return (
     <>
       {head}
-      <ReaderView doc={doc} title={title} downloadUrl={downloadUrl} />
+      <ReaderView doc={doc} title={title} downloadUrl={downloadUrl} libraryDoc={localFile ? null : libraryDocOf(source)} />
     </>
   );
 };

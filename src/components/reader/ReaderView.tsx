@@ -5,6 +5,11 @@ import { ReaderSidePanel, type SidePanelTab } from './ReaderSidePanel';
 import { ReaderToolbar } from './ReaderToolbar';
 import { ReadAloudBar } from './ReadAloudBar';
 import { AiPanel } from '@/components/ai/AiPanel';
+import { DuplicateNotice } from './DuplicateNotice';
+import { useAuth } from '@/auth/useAuth';
+import { simhash } from '@/lib/dedupe/simhash';
+import { getDocumentDuplicates, saveDocumentExtraction, updateDocument, type DuplicateMatches } from '@/lib/documentsApi';
+import type { Extraction } from '@/lib/ai/extraction';
 import { AnnotateToolbar } from '@/components/annotate/AnnotateToolbar';
 import { AnnotationLayer, type AnnotateTool, type PendingSignature } from '@/components/annotate/AnnotationLayer';
 import { SignaturePad } from '@/components/common/SignaturePad';
@@ -66,9 +71,16 @@ interface ReaderViewProps {
   doc: PDFDocumentProxy;
   title: string;
   downloadUrl?: string;
+  /** The library document being read, when there is one: AI details and duplicates attach to it. */
+  libraryDoc?: { id: string; orgId?: string } | null;
 }
 
-export const ReaderView = ({ doc, title, downloadUrl }: ReaderViewProps) => {
+/** Fingerprinting reads the text layer; past this many pages it isn't worth the wait. */
+const FINGERPRINT_MAX_PAGES = 200;
+/** Library documents already fingerprinted this session — one PATCH per document. */
+const fingerprinted = new Set<string>();
+
+export const ReaderView = ({ doc, title, downloadUrl, libraryDoc }: ReaderViewProps) => {
   const fp = useMemo(() => docFingerprint(doc), [doc]);
   const [sizes, setSizes] = useState<{ width: number; height: number }[]>([]);
   const [page, setPage] = useState(1);
@@ -260,6 +272,50 @@ export const ReaderView = ({ doc, title, downloadUrl }: ReaderViewProps) => {
   }, []);
 
   const bookmarked = bookmarks.some((b) => b.page === page);
+
+  // ── Library document: text fingerprint + duplicates (document-service D1) ──
+  const { isAuthenticated } = useAuth();
+  const [duplicates, setDuplicates] = useState<DuplicateMatches | null>(null);
+  const libId = libraryDoc?.id;
+  const libOrg = libraryDoc?.orgId;
+  useEffect(() => {
+    if (!libId || !isAuthenticated) return;
+    let cancelled = false;
+    (async () => {
+      // Fingerprint first (once per document per session) so the near-duplicate
+      // check below can already match on it.
+      if (!fingerprinted.has(libId) && doc.numPages <= FINGERPRINT_MAX_PAGES) {
+        fingerprinted.add(libId);
+        try {
+          const texts: string[] = [];
+          for (let p = 1; p <= doc.numPages && !cancelled; p++) texts.push((await getLayer(p)).text);
+          const fp = simhash(texts.join('\f'));
+          if (fp && !cancelled) await updateDocument(libId, { simhash: fp }, libOrg);
+        } catch {
+          // Best-effort: no fingerprint only means no near-duplicate matches.
+        }
+      }
+      if (cancelled) return;
+      try {
+        setDuplicates(await getDocumentDuplicates(libId, libOrg));
+      } catch {
+        setDuplicates(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [libId, libOrg, isAuthenticated, doc, getLayer]);
+
+  const saveExtraction = libId
+    ? async (e: Extraction) => {
+        try {
+          await saveDocumentExtraction(libId, e.docType, e, libOrg);
+        } catch {
+          toast.error("The details were detected but couldn't be saved to your library.");
+        }
+      }
+    : undefined;
 
   // ── Annotate ──
   const MAX_UNDO = 50;
@@ -466,6 +522,7 @@ export const ReaderView = ({ doc, title, downloadUrl }: ReaderViewProps) => {
         onTheme={setTheme}
         onToggleThumbs={() => setPanelOpen((o) => !o)}
       />
+      {duplicates && <DuplicateNotice matches={duplicates} orgId={libOrg} />}
       {annotating && (
         <AnnotateToolbar
           tool={tool}
@@ -632,6 +689,7 @@ export const ReaderView = ({ doc, title, downloadUrl }: ReaderViewProps) => {
             }}
             onCite={goTo}
             onClose={() => setAiOpen(false)}
+            onExtracted={saveExtraction}
           />
         )}
       </div>

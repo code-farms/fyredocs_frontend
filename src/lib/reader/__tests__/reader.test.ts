@@ -3,6 +3,7 @@ import {
   isPdfName,
   pageAt,
   pageOffsets,
+  libraryDocOf,
   readerHref,
   readerSourceFromParams,
   renderWindow,
@@ -54,5 +55,17 @@ describe('reader logic', () => {
     expect(themeFilter('light')).toBeUndefined();
     expect(themeFilter('night')).toMatch(/invert/);
     expect(themeFilter('sepia')).toMatch(/sepia/);
+  });
+});
+
+describe('library document sources', () => {
+  it('carries the library id through job sources and back', () => {
+    const job = { kind: 'job', toolId: 'compress', jobId: 'j1', docId: 'd1', orgId: 'o1' } as const;
+    const url = new URL(readerHref(job), 'http://x');
+    expect(readerSourceFromParams(url.searchParams)).toEqual(job);
+    expect(libraryDocOf(job)).toEqual({ id: 'd1', orgId: 'o1' });
+    expect(libraryDocOf({ kind: 'doc', id: 'd2' })).toEqual({ id: 'd2' });
+    expect(libraryDocOf({ kind: 'job', toolId: 'compress', jobId: 'j2' })).toBeNull();
+    expect(libraryDocOf(null)).toBeNull();
   });
 });
