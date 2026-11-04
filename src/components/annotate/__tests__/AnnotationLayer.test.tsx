@@ -9,10 +9,10 @@ beforeAll(() => {
   if (!('PointerEvent' in window)) (window as unknown as { PointerEvent: typeof MouseEvent }).PointerEvent = MouseEvent as never;
 });
 
-const setup = (tool: AnnotateTool | null, annotations: Annotation[] = []) => {
+const setup = (tool: AnnotateTool | null, annotations: Annotation[] = [], extra: Record<string, unknown> = {}) => {
   const props = { onAdd: vi.fn(), onUpdate: vi.fn(), onSelect: vi.fn() };
   render(
-    <AnnotationLayer width={600} height={800} annotations={annotations} tool={tool} color="#d43c3c" selectedId={null} {...props} />
+    <AnnotationLayer width={600} height={800} annotations={annotations} tool={tool} color="#d43c3c" selectedId={null} {...props} {...extra} />
   );
   return { ...props, svg: screen.getByTestId('annotation-layer') };
 };
@@ -61,5 +61,22 @@ describe('AnnotationLayer', () => {
     drag(svg, [60, 80], [300, 400]);
     expect(onAdd).not.toHaveBeenCalled();
     expect(svg.querySelector('ellipse')).not.toBeNull();
+  });
+});
+
+describe('AnnotationLayer signatures', () => {
+  it('places the pending signature centred on the click', () => {
+    const { svg, onAdd } = setup('signature', [], { pendingSignature: { relPath: 'web-signature:x', aspect: 0.5 } });
+    fireEvent.pointerDown(svg, { clientX: 300, clientY: 400, pointerId: 1 });
+    // 0.3 wide; height 0.3 × 0.5 aspect × (600/800) = 0.1125 of the page height.
+    expect(onAdd).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'signature', x: expect.closeTo(0.35, 5), y: expect.closeTo(0.44375, 5), w: 0.3, sigRelPath: 'web-signature:x' })
+    );
+  });
+
+  it('draws a stored signature image, or a placeholder when it is unknown', () => {
+    const sig: Annotation = { id: 's', kind: 'signature', x: 0.1, y: 0.1, w: 0.3, aspect: 0.5, sigRelPath: 'web-signature:x' };
+    const { svg } = setup(null, [sig], { signatureUrl: () => 'data:image/png;base64,AAAA' });
+    expect(svg.querySelector('image')?.getAttribute('href')).toBe('data:image/png;base64,AAAA');
   });
 });

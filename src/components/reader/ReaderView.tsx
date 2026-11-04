@@ -6,7 +6,13 @@ import { ReaderToolbar } from './ReaderToolbar';
 import { ReadAloudBar } from './ReadAloudBar';
 import { AiPanel } from '@/components/ai/AiPanel';
 import { AnnotateToolbar } from '@/components/annotate/AnnotateToolbar';
-import { AnnotationLayer, type AnnotateTool } from '@/components/annotate/AnnotationLayer';
+import { AnnotationLayer, type AnnotateTool, type PendingSignature } from '@/components/annotate/AnnotationLayer';
+import { SignaturePad } from '@/components/common/SignaturePad';
+import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { exportAnnotationsJson, exportAnnotationsXfdf, importAnnotations, readOwnAnnotations } from '@/lib/annotate/webInterchange';
+import { signatureUrl, storeSignature, toPngSignature } from '@/lib/annotate/webSignatures';
 import { DEFAULT_INK, HIGHLIGHT_INK } from '@/lib/annotate/inkColors';
 import type { Annotation } from '@/lib/annotate/model';
 import { AnnotateSaveError, saveAnnotatedPdf } from '@/lib/annotate/savePdf';
@@ -90,6 +96,10 @@ export const ReaderView = ({ doc, title, downloadUrl }: ReaderViewProps) => {
   const [undoStack, setUndoStack] = useState<Record<number, Annotation[]>[]>([]);
   const [selected, setSelected] = useState<{ page: number; id: string } | null>(null);
   const [savingPdf, setSavingPdf] = useState(false);
+  const [sigDialog, setSigDialog] = useState(false);
+  const [sigDraft, setSigDraft] = useState<string | null>(null);
+  const [pendingSig, setPendingSig] = useState<PendingSignature | null>(null);
+  const [pendingImport, setPendingImport] = useState<Record<number, Annotation[]> | null>(null);
   // Gated on the gateway's runtime flag (FEATURE_FLAGS_JSON), fail-closed.
   const aiEnabled = useFlags().aiReading === true;
 
@@ -102,8 +112,19 @@ export const ReaderView = ({ doc, title, downloadUrl }: ReaderViewProps) => {
       .catch(() => !cancelled && setSizes(Array.from({ length: doc.numPages }, () => ({ width: 612, height: 792 }))));
     readOutline(doc).then((o) => !cancelled && setOutline(o));
     readPermissions(doc).then((p) => !cancelled && setPermissions(p));
-    setMarkup(loadDrafts(fp));
+    const drafts = loadDrafts(fp);
+    setMarkup(drafts);
     setUndoStack([]);
+    // No draft: re-open the marks a previous save wrote into this PDF.
+    if (Object.keys(drafts).length === 0) {
+      Promise.resolve()
+        .then(() => doc.getData())
+        .then(readOwnAnnotations)
+        .then((saved) => {
+          if (!cancelled && Object.keys(saved).length > 0) setMarkup(saved);
+        })
+        .catch(() => undefined);
+    }
     const saved = loadReaderState(fp);
     setBookmarks(saved.bookmarks);
     if (saved.lastPage > 1 && saved.lastPage <= doc.numPages) resumeTo.current = saved.lastPage;
@@ -308,6 +329,53 @@ export const ReaderView = ({ doc, title, downloadUrl }: ReaderViewProps) => {
     }
   };
 
+  const downloadText = (name: string, body: string, type: string) => {
+    const url = URL.createObjectURL(new Blob([body], { type }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+  const baseName = title.replace(/\.pdf$/i, '');
+
+  const exportXfdf = async () => {
+    try {
+      downloadText(`${baseName}-annotations.xfdf`, await exportAnnotationsXfdf(await doc.getData(), markup), 'application/vnd.adobe.xfdf');
+    } catch {
+      toast.error("The annotations couldn't be exported.");
+    }
+  };
+
+  const importFile = async (file: File) => {
+    try {
+      const imported = await importAnnotations(await file.text(), await doc.getData());
+      if (!imported || markupCount(imported) === 0) {
+        toast.error("That file isn't an XFDF or Fyredocs annotations file, or it has nothing for this PDF.");
+        return;
+      }
+      // Import replaces wholesale, as in the app — confirm when it would discard marks.
+      if (markupCount(markup) > 0) setPendingImport(imported);
+      else commitMarkup(imported);
+    } catch {
+      toast.error("That file couldn't be read.");
+    }
+  };
+
+  const applySignature = async () => {
+    if (!sigDraft) return;
+    try {
+      const png = await toPngSignature(sigDraft);
+      setPendingSig({ relPath: storeSignature(png.url), aspect: png.aspect });
+      setTool('signature');
+      setSelected(null);
+      setSigDialog(false);
+      toast.info('Click on a page to place the signature.');
+    } catch {
+      toast.error("That image couldn't be used as a signature.");
+    }
+  };
+
   useEffect(() => {
     if (!annotating) return;
     const onKey = (e: KeyboardEvent) => {
@@ -407,6 +475,10 @@ export const ReaderView = ({ doc, title, downloadUrl }: ReaderViewProps) => {
           hasSelection={selected !== null}
           saving={savingPdf}
           onTool={(t) => {
+            if (t === 'signature' && !pendingSig) {
+              setSigDialog(true);
+              return;
+            }
             setTool(t);
             setSelected(null);
             if (t === 'highlight' && ink === DEFAULT_INK) setInk(HIGHLIGHT_INK);
@@ -423,8 +495,39 @@ export const ReaderView = ({ doc, title, downloadUrl }: ReaderViewProps) => {
             setAnnotating(false);
             setSelected(null);
           }}
+          onSignature={() => {
+            setSigDraft(null);
+            setSigDialog(true);
+          }}
+          onExportXfdf={() => void exportXfdf()}
+          onExportJson={() => downloadText(`${baseName}-annotations.json`, exportAnnotationsJson(markup), 'application/json')}
+          onImport={(f) => void importFile(f)}
         />
       )}
+      <Dialog open={sigDialog} onOpenChange={setSigDialog}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Add a signature</DialogTitle>
+            <DialogDescription>Draw or upload it, then click on a page to place it. It's kept in this browser.</DialogDescription>
+          </DialogHeader>
+          <SignaturePad idPrefix="reader-signature" onChange={setSigDraft} />
+          <Button disabled={!sigDraft} onClick={() => void applySignature()}>
+            Use signature
+          </Button>
+        </DialogContent>
+      </Dialog>
+      <ConfirmDialog
+        open={pendingImport !== null}
+        onOpenChange={(open) => !open && setPendingImport(null)}
+        title="Replace the current markup?"
+        description="Importing replaces every mark on this document. You can undo it."
+        confirmLabel="Replace"
+        tone="destructive"
+        onConfirm={() => {
+          if (pendingImport) commitMarkup(pendingImport);
+          setPendingImport(null);
+        }}
+      />
       {readAloud.status !== 'idle' && (
         <ReadAloudBar
           status={readAloud.status}
@@ -501,6 +604,8 @@ export const ReaderView = ({ doc, title, downloadUrl }: ReaderViewProps) => {
                             moveStart.current = null;
                             setSelected(id ? { page: i, id } : null);
                           }}
+                          pendingSignature={pendingSig}
+                          signatureUrl={signatureUrl}
                         />
                       )
                     : undefined

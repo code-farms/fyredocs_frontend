@@ -101,7 +101,8 @@ describe('ReaderView permissions and actions', () => {
     await user.click(screen.getByRole('button', { name: 'Copy page text' }));
     expect(mockToast.info).toHaveBeenCalledWith("Printing is restricted by this document's permissions.");
     expect(mockToast.info).toHaveBeenCalledWith("Copying text is restricted by this document's permissions.");
-    expect(getData).not.toHaveBeenCalled();
+    // getData runs once on open (re-reading saved marks); no print frame is ever created.
+    expect(document.querySelector('iframe')).toBeNull();
   });
 
   it('copies the current page text when allowed', async () => {
@@ -185,5 +186,47 @@ describe('ReaderView annotate', () => {
     await waitFor(() => expect(mockSave).toHaveBeenCalledWith(new Uint8Array([1]), { 0: [mark] }));
     expect(mockToast.success).toHaveBeenCalledWith(expect.stringMatching(/text stays searchable/));
     vi.unstubAllGlobals();
+  });
+});
+
+describe('ReaderView annotate — reopen and import', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.stubGlobal('IntersectionObserver', class { observe() {} disconnect() {} });
+    Element.prototype.scrollTo = vi.fn();
+    Object.values(mockToast).forEach((f) => f.mockReset());
+    mockPermissions.mockReturnValue(null);
+  });
+
+  const mark = { id: 'b', kind: 'rect' as const, x: 0.1, y: 0.1, w: 0.2, h: 0.2, color: '#111111', strokeWidth: 0.006 };
+
+  it('re-opens marks saved into the PDF when there is no draft', async () => {
+    const { PDFDocument } = await import('pdf-lib');
+    const { appendAnnotationsToPdf } = await import('@/lib/annotate/pdfAnnots');
+    const pdf = await PDFDocument.create();
+    pdf.addPage([600, 800]);
+    await appendAnnotationsToPdf(pdf, { 0: [mark] });
+    const bytes = await pdf.save();
+    const user = userEvent.setup();
+    render(<ReaderView doc={{ numPages: 3, getData: async () => bytes } as unknown as PDFDocumentProxy} title="Saved.pdf" />);
+    await user.click(screen.getByRole('button', { name: 'Annotate' }));
+    expect(await screen.findByText(/1 mark · draft kept/)).toBeInTheDocument();
+  });
+
+  it('imports a JSON export, asking before it replaces existing marks', async () => {
+    const { saveDrafts } = await import('@/lib/annotate/webDrafts');
+    const { PDFDocument } = await import('pdf-lib');
+    saveDrafts('fp-view', { 0: [mark] });
+    const pdf = await PDFDocument.create();
+    pdf.addPage([600, 800]);
+    const bytes = await pdf.save();
+    const user = userEvent.setup();
+    render(<ReaderView doc={{ numPages: 3, getData: async () => bytes } as unknown as PDFDocumentProxy} title="Lease.pdf" />);
+    await user.click(screen.getByRole('button', { name: 'Annotate' }));
+    const { serializeDocument } = await import('@/lib/annotate/annotationsJson');
+    const file = new File([serializeDocument({ 0: [mark, { ...mark, id: 'c', x: 0.5 }] })], 'marks.json', { type: 'application/json' });
+    await user.upload(screen.getByLabelText('Import annotations file'), file);
+    await user.click(await screen.findByRole('button', { name: 'Replace' }));
+    expect(await screen.findByText(/2 marks · draft kept/)).toBeInTheDocument();
   });
 });

@@ -7,6 +7,7 @@
 import { EncryptedPDFError, PDFDocument } from 'pdf-lib';
 import type { Annotation } from './model';
 import { appendAnnotationsToPdf } from './pdfAnnots';
+import { signatureAssets } from './webSignatures';
 
 export class AnnotateSaveError extends Error {
   constructor(message: string) {
@@ -26,8 +27,15 @@ export const saveAnnotatedPdf = async (bytes: Uint8Array, pages: Record<number, 
     }
     throw new AnnotateSaveError("This PDF couldn't be read for saving — try Repair PDF first.");
   }
+  const { signatures, missing } = signatureAssets(pages);
+  if (missing > 0) {
+    // Saving would drop it: the writer replaces every Fyredocs annotation.
+    throw new AnnotateSaveError(
+      "This PDF has a signature placed in the Fyredocs app that this browser can't re-save. Remove it here or keep editing in the app."
+    );
+  }
   try {
-    await appendAnnotationsToPdf(doc, pages);
+    await appendAnnotationsToPdf(doc, pages, { signatures });
   } catch (err) {
     throw new AnnotateSaveError(err instanceof Error ? err.message : "The markup couldn't be written.");
   }

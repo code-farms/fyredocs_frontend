@@ -5,6 +5,7 @@ import {
   annotationId,
   arrowHead,
   DEFAULT_FONT_SCALE,
+  DEFAULT_SIGNATURE_W,
   DEFAULT_STROKE,
   dragRect,
   HIGHLIGHT_STROKE,
@@ -17,7 +18,14 @@ import {
 } from '@/lib/annotate/model';
 import { NOTE_FILL } from '@/lib/annotate/inkColors';
 
-export type AnnotateTool = 'select' | 'pen' | 'highlight' | 'rect' | 'ellipse' | 'arrow' | 'text' | 'note';
+export type AnnotateTool = 'select' | 'pen' | 'highlight' | 'rect' | 'ellipse' | 'arrow' | 'text' | 'note' | 'signature';
+
+/** A signature ready to be placed with a click. */
+export interface PendingSignature {
+  relPath: string;
+  /** Image height / width. */
+  aspect: number;
+}
 
 interface AnnotationLayerProps {
   /** Page box in CSS px. */
@@ -31,10 +39,26 @@ interface AnnotationLayerProps {
   onAdd: (a: Annotation) => void;
   onUpdate: (a: Annotation) => void;
   onSelect: (id: string | null) => void;
+  /** Required for the signature tool: what a click places. */
+  pendingSignature?: PendingSignature | null;
+  /** Resolves a signature's image (web store); null draws a placeholder box. */
+  signatureUrl?: (relPath: string) => string | null;
 }
 
 /** Draws one annotation into page pixels — normalized model × page box. */
-const Shape = ({ a, w, h, aspect }: { a: Annotation; w: number; h: number; aspect: number }) => {
+const Shape = ({
+  a,
+  w,
+  h,
+  aspect,
+  sigUrl,
+}: {
+  a: Annotation;
+  w: number;
+  h: number;
+  aspect: number;
+  sigUrl?: (relPath: string) => string | null;
+}) => {
   const opacity = 'opacity' in a && a.opacity !== undefined ? a.opacity : 1;
   switch (a.kind) {
     case 'pen':
@@ -97,6 +121,21 @@ const Shape = ({ a, w, h, aspect }: { a: Annotation; w: number; h: number; aspec
         </g>
       );
     }
+    case 'signature': {
+      const url = sigUrl?.(a.sigRelPath);
+      const sw = a.w * w;
+      const sh = sw * a.aspect;
+      return url ? (
+        <image href={url} x={a.x * w} y={a.y * h} width={sw} height={sh} preserveAspectRatio="none" />
+      ) : (
+        <g>
+          <rect x={a.x * w} y={a.y * h} width={sw} height={sh} fill="none" stroke="currentColor" strokeDasharray="4 3" />
+          <text x={a.x * w + 4} y={a.y * h + 14} fontSize={11} fill="currentColor">
+            Signature
+          </text>
+        </g>
+      );
+    }
     default: {
       // Kinds this editor can't create (signature, blur, redact from imports) show as their box.
       const b = annotationBounds(a, aspect);
@@ -116,7 +155,19 @@ type Gesture =
  * click-to-type (text, note) and select/move. All geometry is normalized to
  * the page box, so the same model renders at any zoom and saves exactly.
  */
-export const AnnotationLayer = ({ width, height, annotations, tool, color, selectedId, onAdd, onUpdate, onSelect }: AnnotationLayerProps) => {
+export const AnnotationLayer = ({
+  width,
+  height,
+  annotations,
+  tool,
+  color,
+  selectedId,
+  onAdd,
+  onUpdate,
+  onSelect,
+  pendingSignature,
+  signatureUrl,
+}: AnnotationLayerProps) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const [gesture, setGesture] = useState<Gesture | null>(null);
   const [typing, setTyping] = useState<{ at: Pt; kind: 'text' | 'note'; value: string } | null>(null);
@@ -148,6 +199,22 @@ export const AnnotationLayer = ({ width, height, annotations, tool, color, selec
   const onDown = (e: ReactPointerEvent) => {
     if (!tool) return;
     const p = toPt(e);
+    if (tool === 'signature') {
+      if (!pendingSignature) return;
+      const w = DEFAULT_SIGNATURE_W;
+      const hNorm = (w * pendingSignature.aspect) / aspect;
+      onAdd({
+        id: annotationId(),
+        kind: 'signature',
+        // Centred on the click, kept on the page.
+        x: Math.min(Math.max(0, p.x - w / 2), 1 - w),
+        y: Math.min(Math.max(0, p.y - hNorm / 2), Math.max(0, 1 - hNorm)),
+        w,
+        aspect: pendingSignature.aspect,
+        sigRelPath: pendingSignature.relPath,
+      });
+      return;
+    }
     if (tool === 'text' || tool === 'note') {
       // An open box commits on its own blur; this click only closes it.
       if (!typing) setTyping({ at: p, kind: tool, value: '' });
@@ -232,7 +299,7 @@ export const AnnotationLayer = ({ width, height, annotations, tool, color, selec
         data-testid="annotation-layer"
       >
         {annotations.map((a) => (
-          <Shape key={a.id} a={a} w={width} h={height} aspect={aspect} />
+          <Shape key={a.id} a={a} w={width} h={height} aspect={aspect} sigUrl={signatureUrl} />
         ))}
         {preview && <Shape a={preview} w={width} h={height} aspect={aspect} />}
         {sel && tool === 'select' && (
