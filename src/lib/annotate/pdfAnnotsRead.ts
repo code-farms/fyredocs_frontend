@@ -247,10 +247,18 @@ const reverseMap = (g: PageGeom, dict: PDFDict): Annotation | null => {
 };
 
 /** All annotations of a document, keyed by 0-indexed page. Unparseable
- *  entries are skipped; unparseable documents throw (callers decide). */
+ *  entries are skipped; unparseable documents throw (callers decide).
+ *
+ *  `includeForeign: false` returns only our own /FyreAnnot annotations. The
+ *  editor MUST use it to seed markup: appendAnnotationsToPdf replaces only
+ *  /FyreAnnot dicts on save, so a reverse-mapped foreign annotation would be
+ *  written back next to its untouched original — a duplicate of every
+ *  Acrobat (etc.) mark on each save. */
 export const readAnnotationsFromPdf = async (
-  bytes: Uint8Array | string
+  bytes: Uint8Array | string,
+  opts: { includeForeign?: boolean } = {}
 ): Promise<Record<number, Annotation[]>> => {
+  const includeForeign = opts.includeForeign ?? true;
   const doc = await PDFDocument.load(bytes, { ignoreEncryption: true, updateMetadata: false });
   const geoms = pageGeometries(doc);
   const out: Record<number, Annotation[]> = {};
@@ -271,6 +279,7 @@ export const readAnnotationsFromPdf = async (
             continue;
           }
         }
+        if (!includeForeign) continue;
         const mapped = reverseMap(geoms[pageIndex], dict);
         if (mapped) list.push(mapped);
       } catch {

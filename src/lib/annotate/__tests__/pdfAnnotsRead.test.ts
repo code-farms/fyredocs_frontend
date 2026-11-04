@@ -96,6 +96,24 @@ describe('reverse approximation without /FyreAnnot', () => {
     expect(text.fontScale).toBeCloseTo(0.035, 6);
   });
 
+  it('skips foreign annotations when asked — what the editor seeds from', async () => {
+    const doc = await buildFixture();
+    await appendAnnotationsToPdf(doc, { 0: ALL }, assets);
+    stripFyre(doc);
+    expect(await readAnnotationsFromPdf(await doc.save(), { includeForeign: false })).toEqual({});
+  });
+
+  it('re-saving editor markup never duplicates foreign annotations', async () => {
+    const doc = await buildFixture();
+    await appendAnnotationsToPdf(doc, { 0: ALL }, assets);
+    stripFyre(doc);
+    const foreign = await PDFDocument.load(await doc.save());
+    const before = foreign.getPages()[0].node.Annots()!.size();
+    const seeded = await readAnnotationsFromPdf(await foreign.save(), { includeForeign: false });
+    await appendAnnotationsToPdf(foreign, seeded, assets);
+    expect(foreign.getPages()[0].node.Annots()!.size()).toBe(before);
+  });
+
   it('reconstructs boxes on rotated pages', async () => {
     const doc = await buildFixture();
     const box: Annotation = { kind: 'rect', id: 'r1', x: 0.1, y: 0.2, w: 0.3, h: 0.1, color: '#3C7DD4', strokeWidth: 0.006 };
