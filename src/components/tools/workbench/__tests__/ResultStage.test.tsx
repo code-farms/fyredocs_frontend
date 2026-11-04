@@ -67,3 +67,14 @@ describe('ResultStage failure', () => {
     expect(screen.queryByRole('link', { name: /Try Repair PDF/ })).toBeNull();
   });
 });
+
+describe('ResultStage reader link', () => {
+  it('offers Open in reader for PDF outputs only', () => {
+    const { unmount } = render(<ResultStage tool={tool} job={job()} onStartOver={vi.fn()} onRetry={vi.fn()} />);
+    expect(screen.getByRole('link', { name: /Open in reader/ })).toHaveAttribute('href', '/reader?job=j1&tool=scan-to-pdf');
+    unmount();
+    const docx = { ...job(), result: { ...job().result!, fileName: 'out.docx' } };
+    render(<ResultStage tool={tool} job={docx} onStartOver={vi.fn()} onRetry={vi.fn()} />);
+    expect(screen.queryByRole('link', { name: /Open in reader/ })).toBeNull();
+  });
+});

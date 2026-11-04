@@ -58,6 +58,12 @@ export default defineConfig(({ mode }) => {
           target: proxyTarget,
           changeOrigin: true,
         },
+        // Presigned output GETs — the reader fetches these bytes after the
+        // download route's 302, so they must be same-origin in dev too.
+        "/outputs": {
+          target: proxyTarget,
+          changeOrigin: true,
+        },
       },
     },
     plugins: [react()],
@@ -85,6 +91,12 @@ export default defineConfig(({ mode }) => {
               },
               // Docs-only syntax highlighter (loaded lazily by CodeBlock).
               // Named so it doesn't surface as a mystery "http-*.js" chunk.
+              // PDF reader engine (loaded lazily by /reader). Its worker is a
+              // separate ?url asset, not part of this chunk.
+              {
+                name: "pdfjs",
+                test: /[\\/]node_modules[\\/]pdfjs-dist[\\/]/,
+              },
               {
                 name: "shiki",
                 test: /[\\/]node_modules[\\/](shiki|@shikijs|oniguruma-to-es|regex|regex-recursion|regex-utilities)[\\/]/,

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { Building2, Download, FolderInput, MoreVertical, Tag as TagIcon, Trash2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { BookOpen, Building2, Download, FolderInput, MoreVertical, Tag as TagIcon, Trash2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -22,6 +23,7 @@ import { buildDownloadPath, getToolIdByApiName } from '@/lib/toolApi';
 import { formatBytes } from '@/lib/userMetrics';
 import { downloadDocument, type ApiDocument, type ApiFolder, type ApiTag, type DocumentStatus, type DocumentDownloadResult } from '@/lib/documentsApi';
 import { toast } from '@/lib/toast';
+import { isPdfName, readerHref, type ReaderSource } from '@/lib/reader/reader';
 import type { ToolId } from '@/types';
 
 const STATUS_MAP: Record<DocumentStatus, NonNullable<StatusBadgeProps['status']>> = {
@@ -31,8 +33,8 @@ const STATUS_MAP: Record<DocumentStatus, NonNullable<StatusBadgeProps['status']>
   failed: 'failed',
 };
 
-/** Download URL when the document was registered from a processing job. */
-function downloadUrlFor(doc: ApiDocument): string | null {
+/** The processing job a document was registered from, if any. */
+function jobOf(doc: ApiDocument): { toolId: ToolId; jobId: string } | null {
   const meta = doc.metadata ?? {};
   const jobId = typeof meta.jobId === 'string' ? meta.jobId : undefined;
   if (!jobId) return null;
@@ -41,8 +43,21 @@ function downloadUrlFor(doc: ApiDocument): string | null {
   let toolId: ToolId | undefined;
   if (typeof meta.toolId === 'string') toolId = meta.toolId as ToolId;
   else if (typeof meta.toolType === 'string') toolId = getToolIdByApiName(meta.toolType);
-  if (!toolId) return null;
-  return buildApiUrl(buildDownloadPath(toolId, jobId));
+  return toolId ? { toolId, jobId } : null;
+}
+
+/** Download URL when the document was registered from a processing job. */
+function downloadUrlFor(doc: ApiDocument): string | null {
+  const job = jobOf(doc);
+  return job ? buildApiUrl(buildDownloadPath(job.toolId, job.jobId)) : null;
+}
+
+/** Reader source: the job output when there is one, else the document's stored bytes. */
+function readerSourceFor(doc: ApiDocument): ReaderSource {
+  const job = jobOf(doc);
+  return job
+    ? { kind: 'job', ...job }
+    : { kind: 'doc', id: doc.id, ...(doc.organizationId ? { orgId: doc.organizationId } : {}) };
 }
 
 const DOWNLOAD_ERRORS: Record<Exclude<DocumentDownloadResult, 'started'>, string> = {
@@ -92,6 +107,14 @@ export function LibraryDocumentCard({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
+        {isPdfName(doc.name, doc.mimeType) && (
+          <DropdownMenuItem asChild>
+            <Link to={readerHref(readerSourceFor(doc))}>
+              <BookOpen className="mr-2 h-4 w-4" aria-hidden />
+              Open in reader
+            </Link>
+          </DropdownMenuItem>
+        )}
         {downloadUrl ? (
           <DropdownMenuItem asChild>
             <a href={downloadUrl} download>

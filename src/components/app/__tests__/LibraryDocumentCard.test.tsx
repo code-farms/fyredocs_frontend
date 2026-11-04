@@ -44,3 +44,24 @@ describe('LibraryDocumentCard download', () => {
     expect(mockDownload).toHaveBeenCalledWith('d1', 'org1');
   });
 });
+
+describe('LibraryDocumentCard reader link', () => {
+  it('opens job PDFs from the job and backed-up PDFs from the document', async () => {
+    const { unmount } = render(
+      <LibraryDocumentCard doc={{ ...base, metadata: { jobId: 'j1', toolId: 'compress' } }} onDelete={vi.fn()} />
+    );
+    await openMenu();
+    expect(screen.getByRole('menuitem', { name: 'Open in reader' })).toHaveAttribute('href', '/reader?job=j1&tool=compress');
+    unmount();
+
+    render(<LibraryDocumentCard doc={{ ...base, organizationId: 'org1' }} onDelete={vi.fn()} />);
+    await openMenu();
+    expect(screen.getByRole('menuitem', { name: 'Open in reader' })).toHaveAttribute('href', '/reader?doc=d1&org=org1');
+  });
+
+  it('has no reader link for non-PDF documents', async () => {
+    render(<LibraryDocumentCard doc={{ ...base, name: 'Sheet.xlsx' }} onDelete={vi.fn()} />);
+    await openMenu();
+    expect(screen.queryByRole('menuitem', { name: 'Open in reader' })).toBeNull();
+  });
+});

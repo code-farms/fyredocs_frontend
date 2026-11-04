@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom';
-import { CheckCircle2, Download, RotateCcw, ArrowRight, TriangleAlert, Wrench } from 'lucide-react';
+import { BookOpen, CheckCircle2, Download, RotateCcw, ArrowRight, TriangleAlert, Wrench } from 'lucide-react';
 import { Job, ToolDefinition } from '@/types';
 import { warningMessages } from '@/lib/jobWarnings';
+import { isPdfName, readerHref } from '@/lib/reader/reader';
 import { Button } from '@/components/ui/button';
 import { ErrorState } from '@/components/common/ErrorState';
 import { ToolIcon } from '@/components/icons/ToolIcon';
@@ -152,6 +153,15 @@ export const ResultStage = ({ tool, job, onStartOver, onRetry, className }: Resu
             </Text>
           </div>
         ))}
+
+        {isPdfName(result.fileName) && (
+          <Button variant="outline" className="mt-4 w-full" asChild>
+            <Link to={readerHref({ kind: 'job', toolId: job.toolId, jobId: job.id })}>
+              <BookOpen aria-hidden />
+              Open in reader
+            </Link>
+          </Button>
+        )}
 
         <Button variant="outline" className="mt-4 w-full" onClick={onStartOver}>
           <RotateCcw aria-hidden />

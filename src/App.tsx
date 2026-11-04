@@ -72,6 +72,7 @@ const DocsLayout = lazyWithReload(() =>
 const DevDocsIndexPage = lazyWithReload(() => import("./pages/docs/DevDocsIndexPage"));
 const DevDocsPage = lazyWithReload(() => import("./pages/docs/DevDocsPage"));
 const NotFound = lazyWithReload(() => import("./pages/NotFound"));
+const ReaderPage = lazyWithReload(() => import("./pages/ReaderPage"));
 const MyFilesPage = lazyWithReload(() => import("./pages/MyFilesPage"));
 const Dashboard = lazyWithReload(() => import("./pages/Dashboard"));
 const DocumentsPage = lazyWithReload(() => import("./pages/app/DocumentsPage"));
@@ -120,6 +121,7 @@ const App = () => (
                         element={<ToolPage toolId={tool.id} />}
                       />
                     ))}
+                    <Route path="/reader" element={<ReaderPage />} />
                     <Route path="/about" element={<AboutPage />} />
                     <Route path="/blog" element={<BlogPage />} />
                     <Route path="/pricing" element={<PricingPage />} />
