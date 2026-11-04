@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { RotateCcw, TriangleAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/typography';
@@ -24,13 +24,15 @@ interface PageViewProps {
   filter?: string;
   /** Search matches, drawn above the paper so the theme filter never recolours them. */
   highlights?: PageHighlight[];
+  /** Annotation layer, drawn above the page and highlights. Receives the page box in CSS px. */
+  overlay?: (width: number, height: number) => ReactNode;
 }
 
 /**
  * One page cell. A render failure is contained to this tile with its own
  * Retry — the rest of the document stays readable.
  */
-export const PageView = ({ doc, pageNumber, scale, size, active, filter, highlights }: PageViewProps) => {
+export const PageView = ({ doc, pageNumber, scale, size, active, filter, highlights, overlay }: PageViewProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -79,6 +81,7 @@ export const PageView = ({ doc, pageNumber, scale, size, active, filter, highlig
           />
         ))
       )}
+      {overlay?.(width, height)}
       {failed && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-muted p-4 text-center">
           <TriangleAlert className="h-6 w-6 text-warning" aria-hidden />

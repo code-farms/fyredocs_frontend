@@ -5,6 +5,12 @@ import { ReaderSidePanel, type SidePanelTab } from './ReaderSidePanel';
 import { ReaderToolbar } from './ReaderToolbar';
 import { ReadAloudBar } from './ReadAloudBar';
 import { AiPanel } from '@/components/ai/AiPanel';
+import { AnnotateToolbar } from '@/components/annotate/AnnotateToolbar';
+import { AnnotationLayer, type AnnotateTool } from '@/components/annotate/AnnotationLayer';
+import { DEFAULT_INK, HIGHLIGHT_INK } from '@/lib/annotate/inkColors';
+import type { Annotation } from '@/lib/annotate/model';
+import { AnnotateSaveError, saveAnnotatedPdf } from '@/lib/annotate/savePdf';
+import { loadDrafts, markupCount, saveDrafts } from '@/lib/annotate/webDrafts';
 import { useFlags } from '@/hooks/useFlags';
 import { useReadAloud } from '@/hooks/useReadAloud';
 import { printPdfBytes } from '@/lib/reader/print';
@@ -76,6 +82,14 @@ export const ReaderView = ({ doc, title, downloadUrl }: ReaderViewProps) => {
   const resumeTo = useRef<number | null>(null);
   const [permissions, setPermissions] = useState<PdfPermissions | null>(null);
   const [aiOpen, setAiOpen] = useState(false);
+  // ── Annotate (markup keyed by 0-based page, like the app's model) ──
+  const [annotating, setAnnotating] = useState(false);
+  const [tool, setTool] = useState<AnnotateTool>('pen');
+  const [ink, setInk] = useState<string>(DEFAULT_INK);
+  const [markup, setMarkup] = useState<Record<number, Annotation[]>>({});
+  const [undoStack, setUndoStack] = useState<Record<number, Annotation[]>[]>([]);
+  const [selected, setSelected] = useState<{ page: number; id: string } | null>(null);
+  const [savingPdf, setSavingPdf] = useState(false);
   // Gated on the gateway's runtime flag (FEATURE_FLAGS_JSON), fail-closed.
   const aiEnabled = useFlags().aiReading === true;
 
@@ -88,6 +102,8 @@ export const ReaderView = ({ doc, title, downloadUrl }: ReaderViewProps) => {
       .catch(() => !cancelled && setSizes(Array.from({ length: doc.numPages }, () => ({ width: 612, height: 792 }))));
     readOutline(doc).then((o) => !cancelled && setOutline(o));
     readPermissions(doc).then((p) => !cancelled && setPermissions(p));
+    setMarkup(loadDrafts(fp));
+    setUndoStack([]);
     const saved = loadReaderState(fp);
     setBookmarks(saved.bookmarks);
     if (saved.lastPage > 1 && saved.lastPage <= doc.numPages) resumeTo.current = saved.lastPage;
@@ -224,6 +240,91 @@ export const ReaderView = ({ doc, title, downloadUrl }: ReaderViewProps) => {
 
   const bookmarked = bookmarks.some((b) => b.page === page);
 
+  // ── Annotate ──
+  const MAX_UNDO = 50;
+  /** Replaces the markup as one undoable step. */
+  const commitMarkup = (next: Record<number, Annotation[]>) => {
+    setUndoStack((u) => [...u.slice(-(MAX_UNDO - 1)), markup]);
+    setMarkup(next);
+  };
+
+  // Drafts persist shortly after each change (best-effort, this browser only).
+  useEffect(() => {
+    const t = setTimeout(() => saveDrafts(fp, markup), 400);
+    return () => clearTimeout(t);
+  }, [fp, markup]);
+
+  const addMark = (pageIdx: number, a: Annotation) => commitMarkup({ ...markup, [pageIdx]: [...(markup[pageIdx] ?? []), a] });
+  const moveStart = useRef<Record<number, Annotation[]> | null>(null);
+  const updateMark = (pageIdx: number, a: Annotation) => {
+    // A drag fires many updates; record ONE undo step for the whole move.
+    if (!moveStart.current) {
+      moveStart.current = markup;
+      setUndoStack((u) => [...u.slice(-(MAX_UNDO - 1)), markup]);
+    }
+    setMarkup((prev) => ({ ...prev, [pageIdx]: (prev[pageIdx] ?? []).map((x) => (x.id === a.id ? a : x)) }));
+  };
+  const undo = () => {
+    if (undoStack.length === 0) return;
+    setMarkup(undoStack[undoStack.length - 1]);
+    setUndoStack(undoStack.slice(0, -1));
+    setSelected(null);
+    moveStart.current = null;
+  };
+  const deleteSelected = () => {
+    if (!selected) return;
+    commitMarkup({ ...markup, [selected.page]: (markup[selected.page] ?? []).filter((a) => a.id !== selected.id) });
+    setSelected(null);
+  };
+
+  const startAnnotating = () => {
+    if (annotating) {
+      setAnnotating(false);
+      setSelected(null);
+      return;
+    }
+    if (permissions && !permissions.annotate) {
+      toast.info(restricted('Adding annotations'));
+      return;
+    }
+    setAnnotating(true);
+  };
+
+  const savePdf = async () => {
+    setSavingPdf(true);
+    try {
+      const out = await saveAnnotatedPdf(await doc.getData(), markup);
+      const url = URL.createObjectURL(new Blob([out as BlobPart], { type: 'application/pdf' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${title.replace(/\.pdf$/i, '')}-annotated.pdf`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast.success('Saved — the text stays searchable and the marks stay editable in other PDF apps.');
+    } catch (err) {
+      toast.error(err instanceof AnnotateSaveError ? err.message : "The PDF couldn't be saved.");
+    } finally {
+      setSavingPdf(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!annotating) return;
+    const onKey = (e: KeyboardEvent) => {
+      const typingInField = (e.target as HTMLElement)?.closest?.('input, textarea, [contenteditable="true"]');
+      if (typingInField) return;
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        undo();
+      } else if ((e.key === 'Delete' || e.key === 'Backspace') && selected) {
+        e.preventDefault();
+        deleteSelected();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+
   // ── Read aloud, print, copy ──
   const getPageText = useCallback(async (p: number) => (await getLayer(p)).text, [getLayer]);
   const readAloud = useReadAloud({
@@ -290,11 +391,40 @@ export const ReaderView = ({ doc, title, downloadUrl }: ReaderViewProps) => {
         onPrint={print}
         onCopyText={copyText}
         onAi={aiEnabled ? () => setAiOpen((o) => !o) : undefined}
+        onAnnotate={startAnnotating}
+        annotating={annotating}
         aiOpen={aiOpen}
         onZoom={(dir) => setZoom((z) => stepZoom(z, dir))}
         onTheme={setTheme}
         onToggleThumbs={() => setPanelOpen((o) => !o)}
       />
+      {annotating && (
+        <AnnotateToolbar
+          tool={tool}
+          color={ink}
+          count={markupCount(markup)}
+          canUndo={undoStack.length > 0}
+          hasSelection={selected !== null}
+          saving={savingPdf}
+          onTool={(t) => {
+            setTool(t);
+            setSelected(null);
+            if (t === 'highlight' && ink === DEFAULT_INK) setInk(HIGHLIGHT_INK);
+          }}
+          onColor={setInk}
+          onUndo={undo}
+          onDelete={deleteSelected}
+          onSave={() => void savePdf()}
+          onDiscard={() => {
+            commitMarkup({});
+            setSelected(null);
+          }}
+          onClose={() => {
+            setAnnotating(false);
+            setSelected(null);
+          }}
+        />
+      )}
       {readAloud.status !== 'idle' && (
         <ReadAloudBar
           status={readAloud.status}
@@ -355,6 +485,26 @@ export const ReaderView = ({ doc, title, downloadUrl }: ReaderViewProps) => {
                 active={visible.has(i + 1)}
                 filter={filter}
                 highlights={highlights.get(i + 1)}
+                overlay={
+                  annotating || markup[i]?.length
+                    ? (w, h) => (
+                        <AnnotationLayer
+                          width={w}
+                          height={h}
+                          annotations={markup[i] ?? []}
+                          tool={annotating ? tool : null}
+                          color={ink}
+                          selectedId={selected?.page === i ? selected.id : null}
+                          onAdd={(a) => addMark(i, a)}
+                          onUpdate={(a) => updateMark(i, a)}
+                          onSelect={(id) => {
+                            moveStart.current = null;
+                            setSelected(id ? { page: i, id } : null);
+                          }}
+                        />
+                      )
+                    : undefined
+                }
               />
             ))}
           </div>

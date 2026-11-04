@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Bookmark, BookmarkCheck, Copy, Download, Headphones, PanelLeft, Printer, Search, Sparkles, ZoomIn, ZoomOut } from 'lucide-react';
+import { Bookmark, BookmarkCheck, Copy, Download, Headphones, PanelLeft, PenLine, Printer, Search, Sparkles, ZoomIn, ZoomOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -27,6 +27,8 @@ interface ReaderToolbarProps {
   /** Omitted when AI is off (the aiReading flag). */
   onAi?: () => void;
   aiOpen?: boolean;
+  onAnnotate: () => void;
+  annotating: boolean;
   onZoom: (dir: 1 | -1) => void;
   onTheme: (theme: ReaderTheme) => void;
   onToggleThumbs: () => void;
@@ -51,6 +53,8 @@ export const ReaderToolbar = ({
   onCopyText,
   onAi,
   aiOpen = false,
+  onAnnotate,
+  annotating,
   onZoom,
   onTheme,
   onToggleThumbs,
@@ -126,6 +130,9 @@ export const ReaderToolbar = ({
         {bookmarked ? <BookmarkCheck className="text-primary" aria-hidden /> : <Bookmark aria-hidden />}
       </Button>
 
+      <Button variant="ghost" size="icon" onClick={onAnnotate} aria-label="Annotate" aria-pressed={annotating}>
+        <PenLine aria-hidden />
+      </Button>
       {onAi && (
         <Button variant="ghost" size="icon" onClick={onAi} aria-label="AI assistant" aria-pressed={aiOpen}>
           <Sparkles aria-hidden />

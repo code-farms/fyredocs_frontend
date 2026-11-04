@@ -9,6 +9,11 @@ const pageTexts = ['Intro', 'The lease term', 'Rent and lease renewal'];
 const mockPermissions = vi.hoisted(() => vi.fn(() => null as null | Record<string, boolean>));
 const mockFlags = vi.hoisted(() => ({ value: {} as Record<string, boolean> }));
 vi.mock('@/hooks/useFlags', () => ({ useFlags: () => mockFlags.value }));
+const mockSave = vi.hoisted(() => vi.fn());
+vi.mock('@/lib/annotate/savePdf', async (orig) => ({
+  ...(await orig<typeof import('@/lib/annotate/savePdf')>()),
+  saveAnnotatedPdf: (...a: unknown[]) => mockSave(...a),
+}));
 vi.mock('@/lib/pdf/pdfjs', async (orig) => ({
   ...(await orig<typeof import('@/lib/pdf/pdfjs')>()),
   renderPage: async () => ({ promise: Promise.resolve(), cancel: vi.fn() }),
@@ -133,5 +138,52 @@ describe('ReaderView AI gate', () => {
     render(<ReaderView doc={doc} title="Lease.pdf" />);
     expect(screen.getByRole('button', { name: 'AI assistant' })).toBeInTheDocument();
     mockFlags.value = {};
+  });
+});
+
+describe('ReaderView annotate', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.stubGlobal('IntersectionObserver', class { observe() {} disconnect() {} });
+    Element.prototype.scrollTo = vi.fn();
+    Object.values(mockToast).forEach((f) => f.mockReset());
+    mockPermissions.mockReturnValue(null);
+    mockSave.mockReset();
+  });
+
+  it('opens the annotate toolbar and shows drafts kept from last time', async () => {
+    const { saveDrafts } = await import('@/lib/annotate/webDrafts');
+    saveDrafts('fp-view', { 1: [{ id: 'b', kind: 'rect', x: 0.1, y: 0.1, w: 0.2, h: 0.2, color: '#111111', strokeWidth: 0.006 }] });
+    const user = userEvent.setup();
+    render(<ReaderView doc={doc} title="Lease.pdf" />);
+    await user.click(screen.getByRole('button', { name: 'Annotate' }));
+    expect(screen.getByRole('toolbar', { name: 'Annotate' })).toBeInTheDocument();
+    expect(screen.getByText(/1 mark · draft kept in this browser/)).toBeInTheDocument();
+  });
+
+  it('respects a PDF that forbids annotations', async () => {
+    mockPermissions.mockReturnValue({ print: true, copy: true, modify: false, annotate: false, assemble: false });
+    const user = userEvent.setup();
+    render(<ReaderView doc={doc} title="Locked.pdf" />);
+    await waitFor(() => expect(mockPermissions).toHaveBeenCalled());
+    await user.click(screen.getByRole('button', { name: 'Annotate' }));
+    expect(mockToast.info).toHaveBeenCalledWith("Adding annotations is restricted by this document's permissions.");
+    expect(screen.queryByRole('toolbar', { name: 'Annotate' })).toBeNull();
+  });
+
+  it('saves the markup into a downloaded PDF', async () => {
+    const { saveDrafts } = await import('@/lib/annotate/webDrafts');
+    const mark = { id: 'b', kind: 'rect' as const, x: 0.1, y: 0.1, w: 0.2, h: 0.2, color: '#111111', strokeWidth: 0.006 };
+    saveDrafts('fp-view', { 0: [mark] });
+    mockSave.mockResolvedValue(new Uint8Array([37, 80, 68, 70]));
+    const getData = vi.fn(async () => new Uint8Array([1]));
+    vi.stubGlobal('URL', { ...URL, createObjectURL: vi.fn(() => 'blob:x'), revokeObjectURL: vi.fn() });
+    const user = userEvent.setup();
+    render(<ReaderView doc={{ numPages: 3, getData } as unknown as PDFDocumentProxy} title="Lease.pdf" />);
+    await user.click(screen.getByRole('button', { name: 'Annotate' }));
+    await user.click(screen.getByRole('button', { name: /Save PDF/ }));
+    await waitFor(() => expect(mockSave).toHaveBeenCalledWith(new Uint8Array([1]), { 0: [mark] }));
+    expect(mockToast.success).toHaveBeenCalledWith(expect.stringMatching(/text stays searchable/));
+    vi.unstubAllGlobals();
   });
 });
