@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Link, useSearchParams } from 'react-router-dom';
 import { BookOpen, Download, FileUp } from 'lucide-react';
@@ -6,22 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Heading, Text } from '@/components/ui/typography';
 import { ErrorState } from '@/components/common/ErrorState';
 import { PageLoading } from '@/components/common/LoadingState';
-import { PageView } from '@/components/reader/PageView';
-import { ReaderToolbar } from '@/components/reader/ReaderToolbar';
-import { ThumbRail } from '@/components/reader/ThumbRail';
-import { openPdf, pageSize, PdfOpenError, type PDFDocumentProxy } from '@/lib/pdf/pdfjs';
+import { ReaderView } from '@/components/reader/ReaderView';
+import { openPdf, PdfOpenError, type PDFDocumentProxy } from '@/lib/pdf/pdfjs';
 import { hasNonEmbeddedFonts } from '@/lib/pdf/fonts';
-import {
-  DEFAULT_ZOOM,
-  PAGE_GAP,
-  pageAt,
-  pageOffsets,
-  readerSourceFromParams,
-  renderWindow,
-  stepZoom,
-  themeFilter,
-  type ReaderTheme,
-} from '@/lib/reader/reader';
+import { readerSourceFromParams } from '@/lib/reader/reader';
 import { fetchSourceBytes, ReaderSourceError, sourceUrl } from '@/lib/reader/source';
 import { toast } from '@/lib/toast';
 
@@ -60,12 +48,6 @@ const ReaderPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<LoadError | null>(null);
   const [attempt, setAttempt] = useState(0);
-  const [sizes, setSizes] = useState<{ width: number; height: number }[]>([]);
-  const [page, setPage] = useState(1);
-  const [zoom, setZoom] = useState(DEFAULT_ZOOM);
-  const [theme, setTheme] = useState<ReaderTheme>('light');
-  const [thumbsOpen, setThumbsOpen] = useState(true);
-  const scrollRef = useRef<HTMLDivElement>(null);
 
   // Load bytes (URL source or a local file that never leaves the browser), then open.
   useEffect(() => {
@@ -83,9 +65,6 @@ const ReaderPage = () => {
         const fontCopy = bytes.byteLength <= FONT_CHECK_MAX_BYTES ? bytes.slice() : null;
         opened = await openPdf(bytes);
         if (abort.signal.aborted) return;
-        const first = await pageSize(opened, 1);
-        setSizes(Array.from({ length: opened.numPages }, () => first));
-        setPage(1);
         setDoc(opened);
         setTitle(localFile?.name ?? 'Document');
         if (fontCopy) {
@@ -109,52 +88,6 @@ const ReaderPage = () => {
       void opened?.destroy();
     };
   }, [source, localFile, attempt]);
-
-  // Refine sizes for pages near the current one (mixed page sizes in one file).
-  useEffect(() => {
-    if (!doc) return;
-    let cancelled = false;
-    const wanted = [...renderWindow(page, doc.numPages, 4)];
-    Promise.all(wanted.map((p) => pageSize(doc, p).then((s) => [p, s] as const)))
-      .then((entries) => {
-        if (cancelled) return;
-        setSizes((prev) => {
-          let changed = false;
-          const next = prev.slice();
-          for (const [p, s] of entries) {
-            const old = next[p - 1];
-            if (!old || old.width !== s.width || old.height !== s.height) {
-              next[p - 1] = s;
-              changed = true;
-            }
-          }
-          return changed ? next : prev;
-        });
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, [doc, page]);
-
-  const offsets = useMemo(() => pageOffsets(sizes.map((s) => Math.floor(s.height * zoom))), [sizes, zoom]);
-  const visible = useMemo(() => renderWindow(page, doc?.numPages ?? 0), [page, doc]);
-  const filter = themeFilter(theme);
-
-  const onScroll = useCallback(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    // A third of the way down the viewport counts as "the page being read".
-    setPage(pageAt(offsets, el.scrollTop + el.clientHeight / 3));
-  }, [offsets]);
-
-  const goTo = useCallback(
-    (p: number) => {
-      scrollRef.current?.scrollTo({ top: Math.max(0, (offsets[p - 1] ?? 0) - PAGE_GAP) });
-      setPage(p);
-    },
-    [offsets]
-  );
 
   const downloadUrl = source ? sourceUrl(source) : undefined;
 
@@ -247,49 +180,10 @@ const ReaderPage = () => {
   }
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] flex-col">
+    <>
       {head}
-      <ReaderToolbar
-        title={title}
-        page={page}
-        pageCount={doc.numPages}
-        zoom={zoom}
-        theme={theme}
-        thumbsOpen={thumbsOpen}
-        downloadUrl={downloadUrl}
-        onPage={goTo}
-        onZoom={(dir) => setZoom((z) => stepZoom(z, dir))}
-        onTheme={setTheme}
-        onToggleThumbs={() => setThumbsOpen((o) => !o)}
-      />
-      <div className="flex min-h-0 flex-1">
-        {thumbsOpen && (
-          <div className="hidden md:flex">
-            <ThumbRail doc={doc} currentPage={page} filter={filter} onSelect={goTo} />
-          </div>
-        )}
-        <div
-          ref={scrollRef}
-          onScroll={onScroll}
-          className="min-w-0 flex-1 overflow-auto bg-muted/50 px-4"
-          style={{ paddingTop: PAGE_GAP, paddingBottom: PAGE_GAP }}
-        >
-          <div className="flex flex-col items-center" style={{ gap: PAGE_GAP }}>
-            {sizes.map((size, i) => (
-              <PageView
-                key={i + 1}
-                doc={doc}
-                pageNumber={i + 1}
-                scale={zoom}
-                size={size}
-                active={visible.has(i + 1)}
-                filter={filter}
-              />
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
+      <ReaderView doc={doc} title={title} downloadUrl={downloadUrl} />
+    </>
   );
 };
 

@@ -14,6 +14,9 @@ vi.mock('@/lib/pdf/pdfjs', async (orig) => ({
   openPdf: (...a: unknown[]) => mockOpen(...a),
   renderPage: (...a: unknown[]) => mockRender(...a),
   pageSize: async () => ({ width: 600, height: 800 }),
+  readOutline: async () => [],
+  docFingerprint: () => 'fp-test',
+  pageTextLayer: async () => ({ text: '', offsets: [], items: [] }),
 }));
 const mockFetch = vi.fn();
 vi.mock('@/lib/reader/source', async (orig) => ({
@@ -42,6 +45,7 @@ describe('ReaderPage', () => {
     mockRender.mockReset();
     mockFetch.mockReset();
     vi.stubGlobal('IntersectionObserver', class { observe() {} disconnect() {} });
+    localStorage.clear();
   });
 
   it('opens a local file without any network request', async () => {

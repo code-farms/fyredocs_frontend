@@ -3,6 +3,7 @@
  * its own chunk (vite.config.ts "pdfjs" group) and only /reader pays for it.
  */
 import type { PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
+import { textLayerFrom, type PageTextLayer, type RawTextItem } from './textItems';
 
 export type { PDFDocumentProxy };
 
@@ -82,16 +83,66 @@ export const pageSize = async (doc: PDFDocumentProxy, pageNumber: number) => {
   return { width, height };
 };
 
-/** Plain text of one page (1-based), items joined by spaces. */
-export const pageText = async (doc: PDFDocumentProxy, pageNumber: number): Promise<string> => {
+/**
+ * Text of one page (1-based) plus per-item geometry, joined by oracleMath's
+ * rule — search counts and highlight rects both index into this one string.
+ */
+export const pageTextLayer = async (doc: PDFDocumentProxy, pageNumber: number): Promise<PageTextLayer> => {
   const page = await doc.getPage(pageNumber);
+  const viewport = page.getViewport({ scale: 1 });
   const content = await page.getTextContent();
-  return content.items
-    .map((item) => ('str' in item ? item.str + (item.hasEOL ? '\n' : ' ') : ''))
-    .join('')
-    .replace(/[ \t]+\n/g, '\n')
-    .trim();
+  const raw = content.items.filter((item): item is typeof item & RawTextItem => 'str' in item);
+  return textLayerFrom(raw, viewport.transform, viewport.width, viewport.height);
 };
+
+export interface OutlineEntry {
+  title: string;
+  /** 0 = top level. */
+  depth: number;
+  /** 1-based target page; null when the destination can't be resolved. */
+  page: number | null;
+}
+
+/** Most outlines are short; this bounds pathological or cyclic ones. */
+const MAX_OUTLINE_ENTRIES = 500;
+
+type OutlineNode = { title: string; dest: unknown; items?: OutlineNode[] };
+
+const destPage = async (doc: PDFDocumentProxy, dest: unknown): Promise<number | null> => {
+  try {
+    const explicit = typeof dest === 'string' ? await doc.getDestination(dest) : dest;
+    if (!Array.isArray(explicit) || explicit.length === 0) return null;
+    const target = explicit[0];
+    if (typeof target === 'number') return target + 1;
+    if (target && typeof target === 'object') return (await doc.getPageIndex(target as never)) + 1;
+    return null;
+  } catch {
+    return null;
+  }
+};
+
+/** The document outline ("bookmarks" in desktop readers), first `maxDepth` levels. */
+export const readOutline = async (doc: PDFDocumentProxy, maxDepth = 2): Promise<OutlineEntry[]> => {
+  let roots: OutlineNode[] | null;
+  try {
+    roots = (await doc.getOutline()) as OutlineNode[] | null;
+  } catch {
+    return [];
+  }
+  const out: OutlineEntry[] = [];
+  const walk = async (nodes: OutlineNode[], depth: number) => {
+    for (const node of nodes) {
+      if (out.length >= MAX_OUTLINE_ENTRIES) return;
+      out.push({ title: node.title?.trim() || 'Untitled', depth, page: await destPage(doc, node.dest) });
+      if (depth + 1 < maxDepth && node.items?.length) await walk(node.items, depth + 1);
+    }
+  };
+  if (roots) await walk(roots, 0);
+  return out;
+};
+
+/** Stable per-file id from pdf.js (the /ID entry, or a hash of the bytes). */
+export const docFingerprint = (doc: PDFDocumentProxy): string => doc.fingerprints[0] ?? '';
 
 export const isRenderCancelled = (err: unknown) =>
   (err as { name?: string })?.name === 'RenderingCancelledException';

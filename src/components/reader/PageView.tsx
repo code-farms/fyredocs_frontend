@@ -3,6 +3,14 @@ import { RotateCcw, TriangleAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/typography';
 import { isRenderCancelled, renderPage, type PDFDocumentProxy } from '@/lib/pdf/pdfjs';
+import type { NormalizedRect } from '@/lib/pdf/oracle/oracleMath';
+import { cn } from '@/lib/utils';
+
+/** One search match on this page: its rects (a match can wrap lines) and whether it is the selected one. */
+export interface PageHighlight {
+  rects: NormalizedRect[];
+  active: boolean;
+}
 
 interface PageViewProps {
   doc: PDFDocumentProxy;
@@ -14,13 +22,15 @@ interface PageViewProps {
   /** Inside the render window: draw the canvas; outside: a sized placeholder. */
   active: boolean;
   filter?: string;
+  /** Search matches, drawn above the paper so the theme filter never recolours them. */
+  highlights?: PageHighlight[];
 }
 
 /**
  * One page cell. A render failure is contained to this tile with its own
  * Retry — the rest of the document stays readable.
  */
-export const PageView = ({ doc, pageNumber, scale, size, active, filter }: PageViewProps) => {
+export const PageView = ({ doc, pageNumber, scale, size, active, filter, highlights }: PageViewProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -58,6 +68,17 @@ export const PageView = ({ doc, pageNumber, scale, size, active, filter }: PageV
       <div className="absolute inset-0 bg-white" style={{ filter }}>
         {active && !failed && <canvas ref={canvasRef} className="block" />}
       </div>
+      {highlights?.map((h, i) =>
+        h.rects.map((r, j) => (
+          <span
+            key={`${i}-${j}`}
+            aria-hidden
+            data-active={h.active || undefined}
+            className={cn('pointer-events-none absolute rounded-[2px]', h.active ? 'bg-primary/40 ring-1 ring-primary' : 'bg-warning/40')}
+            style={{ left: r.x * width, top: r.y * height, width: r.w * width, height: r.h * height }}
+          />
+        ))
+      )}
       {failed && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-muted p-4 text-center">
           <TriangleAlert className="h-6 w-6 text-warning" aria-hidden />

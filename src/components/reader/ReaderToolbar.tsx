@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Download, PanelLeft, ZoomIn, ZoomOut } from 'lucide-react';
+import { Bookmark, BookmarkCheck, Download, PanelLeft, Search, ZoomIn, ZoomOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -14,7 +14,11 @@ interface ReaderToolbarProps {
   theme: ReaderTheme;
   thumbsOpen: boolean;
   downloadUrl?: string;
+  searchOpen: boolean;
+  bookmarked: boolean;
   onPage: (page: number) => void;
+  onToggleSearch: () => void;
+  onToggleBookmark: () => void;
   onZoom: (dir: 1 | -1) => void;
   onTheme: (theme: ReaderTheme) => void;
   onToggleThumbs: () => void;
@@ -28,7 +32,11 @@ export const ReaderToolbar = ({
   theme,
   thumbsOpen,
   downloadUrl,
+  searchOpen,
+  bookmarked,
   onPage,
+  onToggleSearch,
+  onToggleBookmark,
   onZoom,
   onTheme,
   onToggleThumbs,
@@ -48,7 +56,7 @@ export const ReaderToolbar = ({
         variant="ghost"
         size="icon"
         onClick={onToggleThumbs}
-        aria-label={thumbsOpen ? 'Hide page thumbnails' : 'Show page thumbnails'}
+        aria-label={thumbsOpen ? 'Hide side panel' : 'Show side panel'}
         aria-pressed={thumbsOpen}
         className="hidden md:inline-flex"
       >
@@ -90,6 +98,19 @@ export const ReaderToolbar = ({
           <ZoomIn aria-hidden />
         </Button>
       </div>
+
+      <Button variant="ghost" size="icon" onClick={onToggleSearch} aria-label="Search in document" aria-pressed={searchOpen}>
+        <Search aria-hidden />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={onToggleBookmark}
+        aria-label={bookmarked ? 'Remove bookmark from this page' : 'Bookmark this page'}
+        aria-pressed={bookmarked}
+      >
+        {bookmarked ? <BookmarkCheck className="text-primary" aria-hidden /> : <Bookmark aria-hidden />}
+      </Button>
 
       <Select value={theme} onValueChange={(v) => onTheme(v as ReaderTheme)}>
         <SelectTrigger className="h-8 w-28" aria-label="Page theme">

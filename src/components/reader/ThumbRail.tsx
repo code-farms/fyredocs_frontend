@@ -78,7 +78,7 @@ interface ThumbRailProps {
 }
 
 export const ThumbRail = ({ doc, currentPage, filter, onSelect }: ThumbRailProps) => (
-  <nav aria-label="Pages" className="w-32 shrink-0 overflow-y-auto border-r bg-card p-2">
+  <nav aria-label="Pages" className="grid grid-cols-2 gap-1 p-2">
     {Array.from({ length: doc.numPages }, (_, i) => i + 1).map((p) => (
       <Thumb key={p} doc={doc} pageNumber={p} current={p === currentPage} filter={filter} onSelect={onSelect} />
     ))}
