@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { OCR_LANGUAGES, PANEL_DEFAULTS } from '../schemas';
+import { OCR_LANGUAGES, PANEL_DEFAULTS, PANEL_SCHEMAS } from '../schemas';
 
 // NOTE: mirrors ocrLanguages/scanLanguages in
 // fyredocs_backend/job-service/handlers/tool_options.go — any other value
@@ -14,5 +14,47 @@ describe('OCR_LANGUAGES', () => {
   it('defaults both OCR panels to English', () => {
     expect(PANEL_DEFAULTS.ocr.language).toBe('eng');
     expect(PANEL_DEFAULTS.scan.language).toBe('eng');
+  });
+});
+
+describe('password schema', () => {
+  const base = PANEL_DEFAULTS.password;
+  const issues = (values: Record<string, unknown>) => {
+    const r = PANEL_SCHEMAS.password.safeParse({ ...base, ...values });
+    return r.success ? [] : r.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`);
+  };
+
+  it('requires an open or a permissions password', () => {
+    expect(issues({})).toEqual(['password: Enter an open password or a permissions password']);
+  });
+
+  it('accepts a permissions password alone', () => {
+    expect(issues({ ownerPassword: 'owner1234' })).toEqual([]);
+  });
+
+  it('enforces 4–128 characters on both passwords', () => {
+    expect(issues({ password: 'abc', confirmPassword: 'abc' })).toEqual([
+      'password: Password must be at least 4 characters',
+    ]);
+    expect(issues({ ownerPassword: 'x'.repeat(129) })).toEqual([
+      'ownerPassword: Password must be at most 128 characters',
+    ]);
+  });
+
+  it('requires the confirmation to match', () => {
+    expect(issues({ password: 'open1234', confirmPassword: 'open12345' })).toEqual([
+      'confirmPassword: Passwords do not match',
+    ]);
+  });
+
+  it('defaults to print-only permissions and AES-256', () => {
+    expect(base).toMatchObject({
+      allowPrint: true,
+      allowCopy: false,
+      allowModify: false,
+      allowAnnotate: false,
+      allowAssemble: false,
+      encryption: 'aes-256',
+    });
   });
 });

@@ -1,4 +1,4 @@
-import { ToolDefinition, ToolOptions, ConvertOptions } from '@/types';
+import { ToolDefinition, ToolOptions, ConvertOptions, PdfEncryption } from '@/types';
 import { OptionsFormValues } from '../options/types';
 
 /**
@@ -85,10 +85,18 @@ export const buildOptions = (
       return { order: (values.order as string).trim() } as ToolOptions;
 
     case 'password':
-      // normalizeOptions only forwards { password } — same as the legacy tool.
       return {
         password: values.password as string,
         confirmPassword: values.confirmPassword as string,
+        ownerPassword: values.ownerPassword as string,
+        permissions: {
+          allowPrint: Boolean(values.allowPrint),
+          allowCopy: Boolean(values.allowCopy),
+          allowModify: Boolean(values.allowModify),
+          allowAnnotate: Boolean(values.allowAnnotate),
+          allowAssemble: Boolean(values.allowAssemble),
+        },
+        encryption: values.encryption as PdfEncryption,
       } as ToolOptions;
 
     case 'unlock':

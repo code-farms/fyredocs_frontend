@@ -33,7 +33,7 @@
  * not attempted here.
  */
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Job, JobState, SplitOptions, WatermarkOptions, ToolId, ToolOptions } from '@/types';
+import { Job, JobState, PasswordProtectOptions, SplitOptions, WatermarkOptions, ToolId, ToolOptions } from '@/types';
 import { apiJson, apiRequest, buildApiUrl } from '@/lib/apiClient';
 import { buildDownloadPath, buildJobPath } from '@/lib/toolApi';
 import { setGuestToken } from '@/lib/guestToken';
@@ -138,11 +138,23 @@ export const normalizeOptions = (toolId: ToolId, options: ToolOptions) => {
       return { ocr: true, ...(opts.language ? { language: opts.language } : {}) };
     }
     case 'password-protect': {
-      const password = (options as { password?: string }).password;
-      if (!password) {
+      // The backend rejects mixing the legacy `password` with userPassword/
+      // ownerPassword, so exactly one shape is sent: legacy (open = owner) unless
+      // a distinct permissions password was given.
+      const opts = options as Partial<PasswordProtectOptions>;
+      const open = opts.password ?? '';
+      const owner = opts.ownerPassword ?? '';
+      if (!open && !owner) {
         throw new Error('Password is required.');
       }
-      return { password };
+      const extras = {
+        ...(opts.permissions ? { permissions: opts.permissions } : {}),
+        ...(opts.encryption ? { encryption: opts.encryption } : {}),
+      };
+      if (!owner || owner === open) {
+        return { password: open, ...extras };
+      }
+      return { ...(open ? { userPassword: open } : {}), ownerPassword: owner, ...extras };
     }
     case 'rotate': {
       const opts = options as { rotation?: number; applyToPages?: string };

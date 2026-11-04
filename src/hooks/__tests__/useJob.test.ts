@@ -116,6 +116,45 @@ describe('normalizeOptions', () => {
         'Password is required'
       );
     });
+
+    const permissions = {
+      allowPrint: true,
+      allowCopy: false,
+      allowModify: false,
+      allowAnnotate: true,
+      allowAssemble: false,
+    };
+
+    it('keeps the legacy shape when no distinct permissions password is set', () => {
+      const result = normalizeOptions('password-protect', {
+        password: 'open1234',
+        confirmPassword: 'open1234',
+        ownerPassword: '',
+        permissions,
+        encryption: 'aes-128',
+      });
+      expect(result).toEqual({ password: 'open1234', permissions, encryption: 'aes-128' });
+    });
+
+    it('treats an owner password equal to the open password as the legacy shape', () => {
+      const result = normalizeOptions('password-protect', { password: 'same1234', ownerPassword: 'same1234' });
+      expect(result).toEqual({ password: 'same1234' });
+    });
+
+    it('sends the split shape for a distinct permissions password, never the legacy key', () => {
+      const result = normalizeOptions('password-protect', {
+        password: 'open1234',
+        ownerPassword: 'owner1234',
+        permissions,
+      }) as Record<string, unknown>;
+      expect(result).toEqual({ userPassword: 'open1234', ownerPassword: 'owner1234', permissions });
+      expect(result).not.toHaveProperty('password');
+    });
+
+    it('allows a permissions-only PDF with no open password', () => {
+      const result = normalizeOptions('password-protect', { password: '', ownerPassword: 'owner1234' });
+      expect(result).toEqual({ ownerPassword: 'owner1234' });
+    });
   });
 
   describe('rotate', () => {

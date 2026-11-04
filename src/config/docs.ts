@@ -1356,10 +1356,14 @@ export const docs: DocEntry[] = [
         tableData: {
           headers: ['Option', 'Description'],
           rows: [
-            ['Password', 'The password required to open the document'],
-            ['Allow printing', 'If disabled, the document cannot be printed from a PDF viewer'],
+            ['Open password', 'The password required to open the document. Leave it empty to restrict permissions without locking the file'],
+            ['Allow printing', 'If disabled, the document cannot be printed from a compliant PDF viewer'],
             ['Allow copying', 'If disabled, text selection and copy are blocked in compliant viewers'],
-            ['Allow editing', 'If disabled, form filling and annotation are blocked in compliant viewers'],
+            ['Allow editing', 'If disabled, content changes are blocked in compliant viewers'],
+            ['Allow comments and form filling', 'If disabled, annotations and form filling are blocked in compliant viewers'],
+            ['Allow page changes', 'If disabled, inserting, rotating and deleting pages is blocked in compliant viewers'],
+            ['Permissions password', 'Optional separate password needed to change the permissions; defaults to the open password'],
+            ['Encryption', 'AES-256 (default), AES-128, or RC4-128 for very old viewers'],
           ],
         },
       },
@@ -1369,8 +1373,8 @@ export const docs: DocEntry[] = [
         type: 'steps',
         items: [
           'Upload up to 10 PDF files (max 50 MB each)',
-          'Set the password that will be required to open the document',
-          'Choose which permissions to allow (print, copy, edit)',
+          'Set the open password, a permissions password, or both',
+          'Choose which permissions to allow and the encryption level',
           'Click "Protect" to apply encryption',
           'Download the protected PDF(s)',
         ],

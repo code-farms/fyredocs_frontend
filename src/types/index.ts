@@ -247,14 +247,24 @@ export interface WatermarkOptions {
   color?: string;
 }
 
+export interface PdfPermissions {
+  allowPrint: boolean;
+  allowCopy: boolean;
+  allowModify: boolean;
+  allowAnnotate: boolean;
+  allowAssemble: boolean;
+}
+
+export type PdfEncryption = 'aes-256' | 'aes-128' | 'rc4-128';
+
 export interface PasswordProtectOptions {
+  /** Open password; may be empty when ownerPassword is set. */
   password: string;
-  confirmPassword: string;
-  permissions?: {
-    allowPrint: boolean;
-    allowCopy: boolean;
-    allowEdit: boolean;
-  };
+  confirmPassword?: string;
+  /** Permissions password; empty or equal to `password` means "same as open". */
+  ownerPassword?: string;
+  permissions?: PdfPermissions;
+  encryption?: PdfEncryption;
 }
 
 export interface OcrOptions {

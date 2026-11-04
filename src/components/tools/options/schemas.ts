@@ -111,18 +111,48 @@ export const PANEL_SCHEMAS: Record<OptionsPanelId, z.ZodTypeAny> = {
     order: z.string().trim().min(1, 'Please enter the new page order'),
   }),
 
+  // Either password may be empty, but not both: an empty open password with a
+  // permissions password yields a PDF that opens freely yet stays restricted.
+  // 4–128 mirrors validateProtectOptions in job-service/handlers/tool_options.go.
   password: z
     .object({
-      password: z.string().min(4, 'Password must be at least 4 characters'),
+      password: z.string(),
       confirmPassword: z.string(),
+      ownerPassword: z.string(),
+      allowPrint: z.boolean(),
+      allowCopy: z.boolean(),
+      allowModify: z.boolean(),
+      allowAnnotate: z.boolean(),
+      allowAssemble: z.boolean(),
+      encryption: z.enum(['aes-256', 'aes-128', 'rc4-128']),
     })
     .superRefine((value, ctx) => {
+      const lengthIssue = (pw: string) =>
+        pw.length < 4 ? 'Password must be at least 4 characters'
+          : pw.length > 128 ? 'Password must be at most 128 characters'
+          : null;
+      if (!value.password && !value.ownerPassword) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['password'],
+          message: 'Enter an open password or a permissions password',
+        });
+        return;
+      }
+      if (value.password) {
+        const issue = lengthIssue(value.password);
+        if (issue) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['password'], message: issue });
+      }
       if (value.password !== value.confirmPassword) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['confirmPassword'],
           message: 'Passwords do not match',
         });
+      }
+      if (value.ownerPassword) {
+        const issue = lengthIssue(value.ownerPassword);
+        if (issue) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['ownerPassword'], message: issue });
       }
     }),
 
@@ -162,7 +192,17 @@ export const PANEL_DEFAULTS: Record<OptionsPanelId, Record<string, unknown>> = {
   },
   'page-selection': { pages: '' },
   reorder: { order: '' },
-  password: { password: '', confirmPassword: '' },
+  password: {
+    password: '',
+    confirmPassword: '',
+    ownerPassword: '',
+    allowPrint: true,
+    allowCopy: false,
+    allowModify: false,
+    allowAnnotate: false,
+    allowAssemble: false,
+    encryption: 'aes-256',
+  },
   unlock: { password: '' },
   'page-numbers': { position: 'bc', startNumber: 1, fontSize: 12, format: '{n}' },
   scan: { ocr: false, language: 'eng' },
