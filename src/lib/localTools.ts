@@ -7,9 +7,8 @@
  * Fidelity: page selections follow the SERVER's rules, so the same options
  * give the same pages either way. NOTE: serverPageList mirrors parsePageRange
  * in fyredocs_backend/organize-pdf/processing/processing_free.go (lenient:
- * invalid parts are skipped, the result is de-duplicated and sorted). Reorder
- * is the one deliberate difference: its order is kept here, while the server's
- * parsePageOrder currently sorts it (a known backend bug).
+ * invalid parts are skipped, the result is de-duplicated and sorted), and
+ * pageOrderList mirrors parsePageOrder there (order and repeats kept).
  */
 import { PDFDocument } from 'pdf-lib';
 import type { ToolId, ToolOptions } from '@/types';
@@ -55,7 +54,7 @@ export const serverPageList = (expr: string, maxPages: number): number[] => {
   return [...seen].sort((a, b) => a - b);
 };
 
-/** Like serverPageList but keeps the typed order (and repeats) — what "reorder" means. */
+/** Like serverPageList but keeps the typed order (and repeats) — the server's parsePageOrder rule. */
 export const pageOrderList = (expr: string, maxPages: number): number[] => {
   const out: number[] = [];
   for (const raw of expr.split(',')) {
