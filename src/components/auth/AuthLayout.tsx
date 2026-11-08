@@ -23,17 +23,17 @@ export function AuthLayout({ children }: AuthLayoutProps) {
     <div className="grid min-h-[calc(100vh-4rem)] lg:grid-cols-2">
       {/* Brand panel */}
       {/* brand-950 stays dark in both themes, so text uses the light end of the brand ramp */}
-      <aside className="relative hidden flex-col justify-between overflow-hidden bg-brand-950 p-10 text-brand-50 lg:flex">
+      <aside className="relative hidden flex-col justify-center overflow-hidden bg-brand-950 p-10 text-brand-50 lg:flex">
         <div className="pointer-events-none absolute inset-0" aria-hidden>
           <div className="absolute -right-1/4 -top-1/4 h-[480px] w-[480px] rounded-full bg-brand-500/20 blur-3xl" />
           <div className="absolute -bottom-1/4 -left-1/4 h-[400px] w-[400px] rounded-full bg-brand-700/20 blur-3xl" />
         </div>
 
-        <div className="relative">
+        {/* <div className="relative">
           <Link to="/" className="inline-flex items-center gap-2">
             <img src="/logo.png" alt="Fyredocs" className="h-12 w-auto" />
           </Link>
-        </div>
+        </div> */}
 
         <div className="relative max-w-md">
           <h2 className="text-h1 font-bold">
