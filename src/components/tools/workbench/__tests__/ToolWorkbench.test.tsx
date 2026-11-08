@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@/test/test-utils';
+import { render, screen, waitFor, act } from '@/test/test-utils';
 import userEvent from '@testing-library/user-event';
 import { ToolWorkbench } from '../ToolWorkbench';
 import { TOOLS } from '@/config/tools';
 import { FileUpload, ToolId } from '@/types';
 
 const createJobMock = vi.fn();
+const addFilesMock = vi.fn(() => ({ isValid: true, errors: [] }));
 
 const makeUploadedFile = (name = 'document.pdf', serverFileId = 'srv-1'): FileUpload => ({
   id: `file-${serverFileId}`,
@@ -21,7 +22,7 @@ let mockFiles: FileUpload[] = [];
 vi.mock('@/hooks/useFileUpload', () => ({
   useFileUpload: () => ({
     files: mockFiles,
-    addFiles: vi.fn(() => ({ isValid: true, errors: [] })),
+    addFiles: addFilesMock,
     removeFile: vi.fn(),
     clearFiles: vi.fn(),
     reorderFiles: vi.fn(),
@@ -86,6 +87,7 @@ const renderWorkbench = (toolId: ToolId) =>
 
 beforeEach(() => {
   createJobMock.mockClear();
+  addFilesMock.mockClear();
   mockFiles = [];
 });
 
@@ -181,5 +183,44 @@ describe('ToolWorkbench — scan to pdf options', () => {
         language: 'eng',
       });
     });
+  });
+});
+
+describe('ToolWorkbench — page-wide drop enforces plan limits', () => {
+  // usePlans is mocked empty and the test user has no planLimits, so the
+  // static guest fallback applies: 20 MB per file, 5 files, 100 MB per job.
+  const dropOnWindow = (files: File[]) => {
+    const event = new Event('drop', { bubbles: true, cancelable: true });
+    Object.defineProperty(event, 'dataTransfer', { value: { types: ['Files'], files } });
+    act(() => {
+      window.dispatchEvent(event);
+    });
+  };
+
+  const sizedFile = (bytes: number, name = 'doc.pdf') => {
+    const file = new File(['x'], name, { type: 'application/pdf' });
+    Object.defineProperty(file, 'size', { value: bytes });
+    return file;
+  };
+
+  it('rejects an oversized drop before it reaches the uploader', async () => {
+    renderWorkbench('compress');
+    dropOnWindow([sizedFile(25 * 1024 * 1024, 'huge.pdf')]);
+    expect(addFilesMock).not.toHaveBeenCalled();
+    expect(await screen.findByText(/20 MB per-file limit/)).toBeInTheDocument();
+  });
+
+  it('rejects a drop over the file count', async () => {
+    renderWorkbench('merge');
+    dropOnWindow(Array.from({ length: 6 }, (_, i) => sizedFile(1024, `f${i}.pdf`)));
+    expect(addFilesMock).not.toHaveBeenCalled();
+    expect(await screen.findByText(/up to 5 files per job/)).toBeInTheDocument();
+  });
+
+  it('passes a drop within limits through to addFiles', () => {
+    renderWorkbench('compress');
+    const file = sizedFile(1024 * 1024);
+    dropOnWindow([file]);
+    expect(addFilesMock).toHaveBeenCalledWith([file]);
   });
 });

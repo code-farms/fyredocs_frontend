@@ -221,7 +221,6 @@ const tool: ToolDefinition = {
   acceptedFileTypes: ['.pdf', 'application/pdf'],
   maxFiles: 10,
   minFiles: 1,
-  maxFileSize: 100 * 1024 * 1024,
   route: '/merge',
   navGroup: 'organize',
 };
@@ -569,5 +568,43 @@ describe('useFileUpload — multipart uploads', () => {
       expect(deletes).toHaveLength(1);
       expect(deletes[0].url).toContain(`${UPLOAD}/up-1`);
     });
+  });
+});
+
+describe('useFileUpload — plan limits', () => {
+  const MB = 1024 * 1024;
+  const limits = { name: 'free', maxFileSizeMb: 50, maxFilesPerJob: 10, maxJobInputMb: 300, retentionDays: 7 };
+  const sized = (bytes: number, name: string) => {
+    const file = new File(['x'], name, { type: 'application/pdf' });
+    Object.defineProperty(file, 'size', { value: bytes });
+    return file;
+  };
+
+  it.each([
+    ['FILE_TOO_LARGE', [sized(51 * MB, 'big.pdf')], /50 MB per-file limit/],
+    ['MAX_FILES_EXCEEDED', Array.from({ length: 11 }, (_, i) => sized(1, `f${i}.pdf`)), /up to 10 files/],
+    ['JOB_TOO_LARGE', Array.from({ length: 7 }, (_, i) => sized(50 * MB, `f${i}.pdf`)), /300 MB total per job/],
+  ])('rejects with %s before any upload request', (code, files, message) => {
+    const onValidationError = vi.fn();
+    const { result } = renderHook(() => useFileUpload({ tool, limits, deferUpload: true, onValidationError }));
+
+    let validation: ReturnType<typeof result.current.addFiles> | undefined;
+    act(() => {
+      validation = result.current.addFiles(files);
+    });
+
+    expect(validation?.isValid).toBe(false);
+    expect(validation?.errors[0]).toMatchObject({ code, message: expect.stringMatching(message) });
+    expect(onValidationError).toHaveBeenCalled();
+    expect(result.current.files).toHaveLength(0);
+    expect(fetchCalls).toHaveLength(0);
+  });
+
+  it('accepts a file exactly at the limit', () => {
+    const { result } = renderHook(() => useFileUpload({ tool, limits, deferUpload: true }));
+    act(() => {
+      result.current.addFiles([sized(50 * MB, 'edge.pdf')]);
+    });
+    expect(result.current.files).toHaveLength(1);
   });
 });

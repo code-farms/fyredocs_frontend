@@ -1,5 +1,6 @@
 import { AuthError, parseAuthError } from '@/auth/authErrors';
 import { versionPath } from '@/lib/apiVersion';
+import { parsePlanLimits, type PlanLimits } from '@/lib/uploadLimits';
 
 /**
  * Transport for the auth endpoints. Session semantics — HttpOnly cookies, the
@@ -20,6 +21,10 @@ export type AuthUser = {
   image?: string;
   role?: string;
   scope?: string[] | string;
+  /** The user's plan ("guest" | "free" | "pro"). */
+  planName?: string;
+  /** Server-enforced upload limits for the user's plan. */
+  planLimits?: PlanLimits;
   [key: string]: unknown;
 };
 
@@ -92,6 +97,8 @@ const normalizeUser = (data: AuthResponse): AuthUser | null => {
     image: raw.image as string | undefined,
     role: raw.role as string | undefined,
     scope: raw.scope as string[] | string | undefined,
+    planName: typeof raw.planName === 'string' ? raw.planName : undefined,
+    planLimits: parsePlanLimits(raw.planLimits) ?? undefined,
   };
 };
 

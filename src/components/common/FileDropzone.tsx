@@ -15,7 +15,7 @@ interface FileDropzoneProps {
   disabled?: boolean;
   className?: string;
   compact?: boolean;
-  /** Override tool.maxFileSize with a plan-based limit (bytes) */
+  /** Effective per-file limit in bytes (plan + tool); defaults to the tool cap, if any. */
   maxFileSize?: number;
   /** Override tool.maxFiles with a plan-based limit */
   maxFiles?: number;
@@ -212,8 +212,12 @@ export const FileDropzone = forwardRef<FileDropzoneHandle, FileDropzoneProps>(
                 ? `${effectiveMaxFiles} file${effectiveMaxFiles > 1 ? 's' : ''}`
                 : `${tool.minFiles}-${effectiveMaxFiles} files`}
             </span>
-            <span>•</span>
-            <span>Max {formatFileSize(effectiveMaxFileSize)}</span>
+            {effectiveMaxFileSize !== undefined && Number.isFinite(effectiveMaxFileSize) && (
+              <>
+                <span>•</span>
+                <span>Max {formatFileSize(effectiveMaxFileSize)} per file</span>
+              </>
+            )}
           </div>
         </div>
       </div>

@@ -91,7 +91,11 @@ export interface ToolDefinition {
   acceptedFileTypes: string[];
   maxFiles: number;
   minFiles: number;
-  maxFileSize: number; // in bytes
+  /**
+   * Tool-specific per-file cap in bytes, on top of the plan limit. Omit for
+   * "no tool cap" — the plan limit (lib/uploadLimits.ts) then applies alone.
+   */
+  maxFileSize?: number;
   route: string;
   /** User-facing nav/discovery group. */
   navGroup: ToolNavGroup;

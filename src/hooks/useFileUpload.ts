@@ -10,6 +10,19 @@ import {
   PutPartError,
 } from '@/lib/uploadClient';
 import { friendlyError } from '@/lib/friendlyError';
+import {
+  GUEST_FALLBACK_LIMITS,
+  checkSelection,
+  effectiveLimits,
+  type PlanLimits,
+  type UploadLimitReason,
+} from '@/lib/uploadLimits';
+
+const LIMIT_ERROR_CODES: Record<UploadLimitReason, string> = {
+  fileCount: 'MAX_FILES_EXCEEDED',
+  fileSize: 'FILE_TOO_LARGE',
+  jobTotal: 'JOB_TOO_LARGE',
+};
 
 /**
  * File uploads via S3-presigned multipart. Parts are PUT straight to storage in
@@ -126,6 +139,11 @@ interface UseFileUploadOptions {
    * in browser"). Turning it off later starts the uploads of any idle files.
    */
   deferUpload?: boolean;
+  /**
+   * The user's effective plan limits (hooks/useUploadLimits). Defaults to the
+   * guest fallback so the hook is never unlimited.
+   */
+  limits?: PlanLimits;
 }
 
 interface UseFileUploadReturn {
@@ -148,7 +166,12 @@ interface UseFileUploadReturn {
   canProceed: boolean;
 }
 
-export const useFileUpload = ({ tool, onValidationError, deferUpload = false }: UseFileUploadOptions): UseFileUploadReturn => {
+export const useFileUpload = ({
+  tool,
+  onValidationError,
+  deferUpload = false,
+  limits = GUEST_FALLBACK_LIMITS,
+}: UseFileUploadOptions): UseFileUploadReturn => {
   const [files, setFiles] = useState<FileUpload[]>([]);
   const uploadControllers = useRef<Map<string, AbortController>>(new Map());
   const filesRef = useRef<FileUpload[]>([]);
@@ -460,13 +483,18 @@ export const useFileUpload = ({ tool, onValidationError, deferUpload = false }: 
     (newFiles: File[]): ValidationResult => {
       const errors: { field: string; message: string; code: string }[] = [];
 
-      // Check total file count
-      const totalFiles = files.length + newFiles.length;
-      if (totalFiles > tool.maxFiles) {
+      // Plan + tool limits: file count, per-file size, total per job.
+      const limitCheck = checkSelection({
+        files: newFiles,
+        existingFiles: files.map((f) => f.file),
+        limits,
+        tool,
+      });
+      if (limitCheck.ok === false) {
         errors.push({
           field: 'files',
-          message: `Maximum ${tool.maxFiles} files allowed. You have ${files.length} files and tried to add ${newFiles.length} more.`,
-          code: 'MAX_FILES_EXCEEDED',
+          message: limitCheck.message,
+          code: LIMIT_ERROR_CODES[limitCheck.reason],
         });
       }
 
@@ -488,17 +516,6 @@ export const useFileUpload = ({ tool, onValidationError, deferUpload = false }: 
           });
         }
 
-        // Check file size
-        if (file.size > tool.maxFileSize) {
-          const maxSizeMB = Math.round(tool.maxFileSize / (1024 * 1024));
-          const fileSizeMB = (file.size / (1024 * 1024)).toFixed(1);
-          errors.push({
-            field: `file-${index}`,
-            message: `"${file.name}" (${fileSizeMB}MB) exceeds the ${maxSizeMB}MB limit.`,
-            code: 'FILE_TOO_LARGE',
-          });
-        }
-
         // Check for duplicates
         const isDuplicate = files.some(
           (existing) => existing.file.name === file.name && existing.file.size === file.size
@@ -517,7 +534,7 @@ export const useFileUpload = ({ tool, onValidationError, deferUpload = false }: 
         errors,
       };
     },
-    [files, tool]
+    [files, limits, tool]
   );
 
   const addFiles = useCallback(
@@ -681,7 +698,7 @@ export const useFileUpload = ({ tool, onValidationError, deferUpload = false }: 
   const totalCount = files.length;
   const canProceed =
     files.length >= tool.minFiles &&
-    files.length <= tool.maxFiles &&
+    files.length <= effectiveLimits(limits, tool).maxFiles &&
     (deferUpload || files.every((f) => f.state === 'completed' && Boolean(f.serverFileId)));
 
   useEffect(() => {

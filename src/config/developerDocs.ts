@@ -1928,7 +1928,7 @@ export const developerDocs: DevDocEntry[] = [
       },
       {
         heading: 'Validation',
-        content: 'Before adding files, validateFiles() checks: (1) total file count does not exceed tool.maxFiles, (2) each file type matches tool.acceptedFileTypes (checks both extension and MIME type), (3) each file size is under tool.maxFileSize, (4) no duplicate files (same name + size). Validation errors are returned as an array of {field, message, code} objects with codes: MAX_FILES_EXCEEDED, INVALID_FILE_TYPE, FILE_TOO_LARGE, DUPLICATE_FILE.',
+        content: 'Before adding files, validateFiles() checks: (1) the plan and tool limits via checkSelection() in src/lib/uploadLimits.ts — file count ≤ min(plan maxFilesPerJob, tool.maxFiles), each file ≤ min(plan maxFileSizeMb, plan maxJobInputMb, tool.maxFileSize if set), and the total of existing + new files ≤ plan maxJobInputMb, (2) each file type matches tool.acceptedFileTypes (checks both extension and MIME type), (3) no duplicate files (same name + size). Validation errors are returned as an array of {field, message, code} objects with codes: MAX_FILES_EXCEEDED, FILE_TOO_LARGE, JOB_TOO_LARGE, INVALID_FILE_TYPE, DUPLICATE_FILE.',
         type: 'paragraph',
       },
       {
@@ -2138,7 +2138,7 @@ export const developerDocs: DevDocEntry[] = [
             ['acceptedFileTypes', 'string[]', 'Array of MIME types and/or file extensions (e.g., [".pdf", "application/pdf"])'],
             ['maxFiles', 'number', 'Maximum number of files allowed (e.g., 20 for merge, 1 for split)'],
             ['minFiles', 'number', 'Minimum number of files required (e.g., 2 for merge, 1 for most tools)'],
-            ['maxFileSize', 'number', 'Maximum file size in bytes (e.g., 50 * 1024 * 1024 for 50MB)'],
+            ['maxFileSize', 'number (optional)', 'Tool-specific per-file cap in bytes on top of the plan limit (e.g., 20 * MB for image tools). Omit for no tool cap.'],
             ['route', 'string', 'Frontend route path (e.g., "/merge", "/pdf-to-word")'],
           ],
         },
@@ -2150,7 +2150,7 @@ export const developerDocs: DevDocEntry[] = [
       },
       {
         heading: 'Example tool definition',
-        content: 'merge: {\n  id: \'merge\',\n  name: \'Merge PDF\',\n  description: \'Combine multiple PDF files into one document\',\n  category: \'merge\',\n  icon: \'layers\',\n  acceptedFileTypes: [\'.pdf\', \'application/pdf\'],\n  maxFiles: 20,\n  minFiles: 2,\n  maxFileSize: 50 * MB,\n  route: \'/merge\',\n},',
+        content: 'merge: {\n  id: \'merge\',\n  name: \'Merge PDF\',\n  description: \'Combine multiple PDF files into one document\',\n  category: \'merge\',\n  icon: \'layers\',\n  acceptedFileTypes: [\'.pdf\', \'application/pdf\'],\n  maxFiles: 20,\n  minFiles: 2,\n  route: \'/merge\',\n},',
         type: 'code',
         language: 'TypeScript',
       },
@@ -2230,7 +2230,7 @@ export const developerDocs: DevDocEntry[] = [
       },
       {
         heading: 'TOOLS entry example',
-        content: '// In src/config/tools.ts\n\'flatten-pdf\': {\n  id: \'flatten-pdf\',\n  name: \'Flatten PDF\',\n  description: \'Flatten form fields and annotations into the page content\',\n  category: \'organize\',\n  icon: \'file-down\',\n  acceptedFileTypes: [\'.pdf\', \'application/pdf\'],\n  maxFiles: 10,\n  minFiles: 1,\n  maxFileSize: 50 * MB,\n  route: \'/flatten-pdf\',\n},',
+        content: '// In src/config/tools.ts\n\'flatten-pdf\': {\n  id: \'flatten-pdf\',\n  name: \'Flatten PDF\',\n  description: \'Flatten form fields and annotations into the page content\',\n  category: \'organize\',\n  icon: \'file-down\',\n  acceptedFileTypes: [\'.pdf\', \'application/pdf\'],\n  maxFiles: 10,\n  minFiles: 1,\n  route: \'/flatten-pdf\',\n},',
         type: 'code',
         language: 'TypeScript',
       },

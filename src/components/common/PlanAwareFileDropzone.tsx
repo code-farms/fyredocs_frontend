@@ -4,8 +4,11 @@ import { ToolDefinition } from '@/types';
 import { FileDropzone, FileDropzoneHandle } from '@/components/common/FileDropzone';
 import { useAuth } from '@/auth/useAuth';
 import { usePlan } from '@/hooks/usePlans';
+import { useUploadLimits } from '@/hooks/useUploadLimits';
+import { checkSelection, effectiveLimits, isTopPlan, type UploadLimitReason } from '@/lib/uploadLimits';
+import { toast } from '@/lib/toast';
 
-export type PlanLimitReason = 'fileSize' | 'fileCount';
+export type PlanLimitReason = UploadLimitReason;
 
 interface PlanAwareFileDropzoneProps {
   tool: ToolDefinition;
@@ -13,19 +16,22 @@ interface PlanAwareFileDropzoneProps {
   disabled?: boolean;
   className?: string;
   compact?: boolean;
-  /** Files already selected — needed to enforce the plan's file-count limit. */
-  currentFileCount?: number;
+  /** Files already in the job — needed for the file-count and total-size limits. */
+  currentFiles?: { size: number }[];
   /**
-   * Called when the selection violates the user's plan limits (the tighter of
-   * plan vs tool limits). The violating selection is NOT forwarded.
+   * Called when the selection violates the user's effective limits (plan and
+   * tool, see lib/uploadLimits.ts). The violating selection is NOT forwarded.
+   * Without a handler the message is shown as a toast.
    */
-  onLimitExceeded?: (reason: PlanLimitReason) => void;
+  onLimitExceeded?: (reason: PlanLimitReason, message: string) => void;
 }
 
+const NO_FILES: { size: number }[] = [];
+
 /**
- * Drop-in replacement for FileDropzone that automatically enforces and
- * displays the current user's plan-based file size and file count limits.
- * Limits are fetched from GET /auth/plans and cached for 5 minutes.
+ * Drop-in replacement for FileDropzone that enforces and displays the current
+ * user's plan-based limits (per-file size, files per job, total per job)
+ * before anything is uploaded.
  *
  * Exposes `openFileDialog()` via ref for "Add more files" actions.
  */
@@ -37,38 +43,28 @@ export const PlanAwareFileDropzone = forwardRef<FileDropzoneHandle, PlanAwareFil
       disabled = false,
       className,
       compact = false,
-      currentFileCount = 0,
+      currentFiles = NO_FILES,
       onLimitExceeded,
     },
     ref
   ) => {
     const { plan } = useAuth();
-    const { plan: planData } = usePlan(plan);
+    const limits = useUploadLimits();
+    const { plan: freePlan } = usePlan('free');
     const { plan: proPlan } = usePlan('pro');
-
-    const MB = 1024 * 1024;
-    const planMaxFileSize = planData ? planData.maxFileSizeMb * MB : undefined;
-    const planMaxFiles = planData ? planData.maxFilesPerJob : undefined;
-
-    // The tighter limit wins.
-    const effectiveMaxFileSize = Math.min(tool.maxFileSize, planMaxFileSize ?? Infinity);
-    const effectiveMaxFiles = Math.min(tool.maxFiles, planMaxFiles ?? Infinity);
+    const effective = effectiveLimits(limits, tool);
 
     const handleFilesSelected = useCallback(
       (files: File[]) => {
-        if (onLimitExceeded) {
-          if (currentFileCount + files.length > effectiveMaxFiles) {
-            onLimitExceeded('fileCount');
-            return;
-          }
-          if (files.some((file) => file.size > effectiveMaxFileSize)) {
-            onLimitExceeded('fileSize');
-            return;
-          }
+        const check = checkSelection({ files, existingFiles: currentFiles, limits, tool });
+        if (check.ok === false) {
+          if (onLimitExceeded) onLimitExceeded(check.reason, check.message);
+          else toast.error(check.message);
+          return;
         }
         onFilesSelected(files);
       },
-      [currentFileCount, effectiveMaxFileSize, effectiveMaxFiles, onFilesSelected, onLimitExceeded]
+      [currentFiles, limits, onFilesSelected, onLimitExceeded, tool]
     );
 
     return (
@@ -80,17 +76,19 @@ export const PlanAwareFileDropzone = forwardRef<FileDropzoneHandle, PlanAwareFil
           disabled={disabled}
           className={className}
           compact={compact}
-          maxFileSize={Number.isFinite(effectiveMaxFileSize) ? effectiveMaxFileSize : undefined}
-          maxFiles={Number.isFinite(effectiveMaxFiles) ? effectiveMaxFiles : undefined}
+          maxFileSize={effective.maxFileSize}
+          maxFiles={effective.maxFiles}
         />
-        {plan !== 'pro' && planData && (
+        {!isTopPlan(plan) && (
           <p className="text-xs text-center text-muted-foreground">
             {plan === 'guest' ? (
               <>
                 <Link to="/signup" className="underline hover:text-foreground">
                   Sign up free
-                </Link>{' '}
-                for {planData.maxFileSizeMb}MB uploads &amp; {planData.maxFilesPerJob}-file jobs.{' '}
+                </Link>
+                {freePlan
+                  ? ` for ${freePlan.maxFileSizeMb}MB uploads & ${freePlan.maxFilesPerJob}-file jobs. `
+                  : '. '}
                 <Link to="/pricing" className="underline hover:text-foreground">
                   Upgrade to Pro
                 </Link>

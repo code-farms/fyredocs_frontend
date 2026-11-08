@@ -9,7 +9,7 @@ import { FileDropzoneHandle } from '@/components/common/FileDropzone';
 interface UploadStageProps {
   tool: ToolDefinition;
   onFilesSelected: (files: File[]) => void;
-  onLimitExceeded: (reason: PlanLimitReason) => void;
+  onLimitExceeded: (reason: PlanLimitReason, message: string) => void;
   disabled?: boolean;
 }
 
@@ -22,7 +22,6 @@ export const UploadStage = forwardRef<FileDropzoneHandle, UploadStageProps>(
       onFilesSelected={onFilesSelected}
       onLimitExceeded={onLimitExceeded}
       disabled={disabled}
-      currentFileCount={0}
       className="w-full"
     />
   )

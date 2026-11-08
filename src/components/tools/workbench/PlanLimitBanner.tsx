@@ -1,7 +1,7 @@
 import { Gauge } from 'lucide-react';
 import { FileUpload, ToolDefinition } from '@/types';
-import { useAuth } from '@/auth/useAuth';
-import { usePlan } from '@/hooks/usePlans';
+import { useUploadLimits } from '@/hooks/useUploadLimits';
+import { effectiveLimits } from '@/lib/uploadLimits';
 import { cn } from '@/lib/utils';
 
 interface PlanLimitBannerProps {
@@ -21,19 +21,16 @@ const formatSize = (bytes: number) => {
  * limits (the tighter of plan vs tool limits). Warning tone near the limits.
  */
 export const PlanLimitBanner = ({ tool, files, className }: PlanLimitBannerProps) => {
-  const { plan } = useAuth();
-  const { plan: planData } = usePlan(plan);
-
-  const MB = 1024 * 1024;
-  const maxFiles = Math.min(tool.maxFiles, planData ? planData.maxFilesPerJob : Infinity);
-  const maxFileSize = Math.min(tool.maxFileSize, planData ? planData.maxFileSizeMb * MB : Infinity);
+  const { maxFiles, maxFileSize, maxJobInput } = effectiveLimits(useUploadLimits(), tool);
 
   const fileCount = files.length;
   const largestFile = files.reduce((max, f) => Math.max(max, f.file.size), 0);
+  const totalSize = files.reduce((sum, f) => sum + f.file.size, 0);
 
   const nearLimit =
-    (maxFiles > 1 && Number.isFinite(maxFiles) && fileCount / maxFiles >= 0.8) ||
-    (Number.isFinite(maxFileSize) && largestFile / maxFileSize >= 0.8);
+    (maxFiles > 1 && fileCount / maxFiles >= 0.8) ||
+    largestFile / maxFileSize >= 0.8 ||
+    totalSize / maxJobInput >= 0.8;
 
   return (
     <div
@@ -47,9 +44,15 @@ export const PlanLimitBanner = ({ tool, files, className }: PlanLimitBannerProps
     >
       <Gauge className="h-3.5 w-3.5 shrink-0" aria-hidden />
       <span>
-        {fileCount} of {Number.isFinite(maxFiles) ? maxFiles : '∞'} files
+        {fileCount} of {maxFiles} files
         {' · '}
-        {formatSize(largestFile)} of {Number.isFinite(maxFileSize) ? formatSize(maxFileSize) : '∞'} per file
+        {formatSize(largestFile)} of {formatSize(maxFileSize)} per file
+        {maxFiles > 1 && (
+          <>
+            {' · '}
+            {formatSize(totalSize)} of {formatSize(maxJobInput)} total
+          </>
+        )}
       </span>
     </div>
   );

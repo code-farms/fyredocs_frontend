@@ -15,6 +15,8 @@ import { toast } from '@/lib/toast';
 import { BatchProgress } from '@/components/common/BatchProgress';
 import { FileDropzoneHandle } from '@/components/common/FileDropzone';
 import { PlanLimitReason } from '@/components/common/PlanAwareFileDropzone';
+import { useUploadLimits } from '@/hooks/useUploadLimits';
+import { checkSelection } from '@/lib/uploadLimits';
 import { AnimatedSwitch } from '@/components/ui/animated';
 import { PANEL_SCHEMAS, PANEL_DEFAULTS, OptionsFormValues } from '../options';
 import { ToolStepper, WorkbenchStage } from './ToolStepper';
@@ -58,9 +60,14 @@ export const ToolWorkbench = ({ tool }: ToolWorkbenchProps) => {
   const [localMode, setLocalMode] = useState(false);
   const [localOutcome, setLocalOutcome] = useState<{ result?: LocalResult; error?: string } | null>(null);
   const [localBusy, setLocalBusy] = useState(false);
-  const [upgradeDialog, setUpgradeDialog] = useState<{ open: boolean; reason?: PlanLimitReason }>({
+  const [upgradeDialog, setUpgradeDialog] = useState<{
+    open: boolean;
+    reason?: PlanLimitReason;
+    message?: string;
+  }>({
     open: false,
   });
+  const limits = useUploadLimits();
   const dropzoneRef = useRef<FileDropzoneHandle>(null);
 
   const {
@@ -77,6 +84,7 @@ export const ToolWorkbench = ({ tool }: ToolWorkbenchProps) => {
   } = useFileUpload({
     tool,
     deferUpload: localMode,
+    limits,
     onValidationError: (errors) => {
       errors.forEach((error) => toast.error(error));
     },
@@ -158,14 +166,33 @@ export const ToolWorkbench = ({ tool }: ToolWorkbenchProps) => {
     [addFiles, readPageCount, tool.needsPageCount]
   );
 
-  const handleLimitExceeded = useCallback((reason: PlanLimitReason) => {
-    setUpgradeDialog({ open: true, reason });
+  const handleLimitExceeded = useCallback((reason: PlanLimitReason, message: string) => {
+    setUpgradeDialog({ open: true, reason, message });
   }, []);
+
+  // The page-wide drop bypasses PlanAwareFileDropzone, so it runs the same
+  // limit check itself before anything reaches addFiles / the uploader.
+  const handleGlobalDrop = useCallback(
+    (droppedFiles: File[]) => {
+      const check = checkSelection({
+        files: droppedFiles,
+        existingFiles: files.map((f) => f.file),
+        limits,
+        tool,
+      });
+      if (check.ok === false) {
+        handleLimitExceeded(check.reason, check.message);
+        return;
+      }
+      handleFilesSelected(droppedFiles);
+    },
+    [files, handleFilesSelected, handleLimitExceeded, limits, tool]
+  );
 
   // Page-level drag-anywhere during upload/configure.
   const { isDraggingOver } = useGlobalDropTarget(
     stage === 'upload' || stage === 'configure',
-    handleFilesSelected
+    handleGlobalDrop
   );
 
   const collectUploadedFiles = useCallback(() => {
@@ -386,6 +413,7 @@ export const ToolWorkbench = ({ tool }: ToolWorkbenchProps) => {
         open={upgradeDialog.open}
         onOpenChange={(open) => setUpgradeDialog((prev) => ({ ...prev, open }))}
         reason={upgradeDialog.reason}
+        message={upgradeDialog.message}
       />
     </div>
   );

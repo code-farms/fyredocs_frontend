@@ -26,6 +26,10 @@ describe('code table', () => {
     );
   });
 
+  it('maps JOB_TOO_LARGE to a total-per-job sentence', () => {
+    expect(humanizeJobFailure('JOB_TOO_LARGE', undefined)).toMatch(/total size limit per job/);
+  });
+
   it('keeps the AI trio distinct — never a generic toast', () => {
     const trio = [
       humanizeJobFailure('AI_UNAVAILABLE', undefined),

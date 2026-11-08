@@ -21,6 +21,7 @@ const mockAuthValue = {
   user: { id: 'test-user', email: 'test@test.com', fullName: 'Test User', country: 'US', role: 'user' },
   role: 'user',
   plan: 'free',
+  planLimits: null,
   login: async () => null,
   signup: async () => null,
   logout: async () => {},

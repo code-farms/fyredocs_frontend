@@ -12,6 +12,7 @@ export type PlanTierId = 'guest' | 'free' | 'pro';
 export interface PlanLimits {
   maxFileSizeMb: number;
   maxFilesPerJob: number;
+  maxJobInputMb: number;
   retentionDays: number;
 }
 
@@ -52,7 +53,7 @@ export const PLAN_TIERS: PlanTierContent[] = [
       'Encrypted in transit (HTTPS)',
     ],
     cta: { label: 'Use tools now', href: '/all-tools' },
-    fallbackLimits: { maxFileSizeMb: 20, maxFilesPerJob: 5, retentionDays: 0 },
+    fallbackLimits: { maxFileSizeMb: 20, maxFilesPerJob: 5, maxJobInputMb: 100, retentionDays: 0 },
   },
   {
     id: 'free',
@@ -67,7 +68,7 @@ export const PLAN_TIERS: PlanTierContent[] = [
       'Resumable chunked uploads',
     ],
     cta: { label: 'Create free account', href: '/signup' },
-    fallbackLimits: { maxFileSizeMb: 50, maxFilesPerJob: 10, retentionDays: 7 },
+    fallbackLimits: { maxFileSizeMb: 50, maxFilesPerJob: 10, maxJobInputMb: 300, retentionDays: 7 },
   },
   {
     id: 'pro',
@@ -77,14 +78,14 @@ export const PLAN_TIERS: PlanTierContent[] = [
     period: 'upgrade anytime',
     features: [
       'Everything in Free',
-      'Large files up to 500 MB',
+      'Large files up to 300 MB',
       'Up to 50 files per job',
       'Results kept for 30 days',
     ],
     cta: { label: 'Get Pro', href: '/signup?plan=pro' },
     highlighted: true,
     comingSoon: true,
-    fallbackLimits: { maxFileSizeMb: 500, maxFilesPerJob: 50, retentionDays: 30 },
+    fallbackLimits: { maxFileSizeMb: 300, maxFilesPerJob: 50, maxJobInputMb: 300, retentionDays: 30 },
   },
 ];
 
@@ -95,6 +96,7 @@ export const resolvePlanLimits = (tier: PlanTierContent, plans?: Plan[]): PlanLi
   return {
     maxFileSizeMb: live.maxFileSizeMb ?? tier.fallbackLimits.maxFileSizeMb,
     maxFilesPerJob: live.maxFilesPerJob ?? tier.fallbackLimits.maxFilesPerJob,
+    maxJobInputMb: live.maxJobInputMb ?? tier.fallbackLimits.maxJobInputMb,
     retentionDays: live.retentionDays ?? tier.fallbackLimits.retentionDays,
   };
 };

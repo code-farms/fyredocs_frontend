@@ -1,4 +1,4 @@
-import { Suspense, ComponentType, RefObject } from 'react';
+import { Suspense, ComponentType, RefObject, useMemo } from 'react';
 import { lazyWithReload } from '@/lib/lazyWithReload';
 import { UseFormReturn } from 'react-hook-form';
 import { Trash2, Plus } from 'lucide-react';
@@ -33,7 +33,7 @@ interface ConfigureStageProps {
   pageCount: number | null;
   dropzoneRef: RefObject<FileDropzoneHandle>;
   onFilesSelected: (files: File[]) => void;
-  onLimitExceeded: (reason: PlanLimitReason) => void;
+  onLimitExceeded: (reason: PlanLimitReason, message: string) => void;
   onRemoveFile: (fileId: string) => void;
   onRetryFile: (fileId: string) => void;
   onPauseFile: (fileId: string) => void;
@@ -74,6 +74,7 @@ export const ConfigureStage = ({
   const hasRightColumn = Boolean(Panel || Bespoke);
 
   const allowMoreFiles = tool.maxFiles > 1;
+  const currentFiles = useMemo(() => files.map((f) => f.file), [files]);
   const orderMatters = tool.id === 'merge' || tool.id === 'scan-to-pdf';
 
   const fileList = (
@@ -97,7 +98,7 @@ export const ConfigureStage = ({
           tool={tool}
           onFilesSelected={onFilesSelected}
           onLimitExceeded={onLimitExceeded}
-          currentFileCount={files.length}
+          currentFiles={currentFiles}
           compact
         />
       ) : null}

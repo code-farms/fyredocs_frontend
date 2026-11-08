@@ -6,7 +6,10 @@ export type Plan = {
   name: string;
   maxFileSizeMb: number;
   maxFilesPerJob: number;
+  /** Total input size allowed per job. Optional only for older backends. */
+  maxJobInputMb?: number;
   retentionDays: number;
+  createdAt?: string;
 };
 
 type PlansResponse = {
@@ -29,6 +32,6 @@ export const usePlans = () =>
 
 export const usePlan = (planName: string) => {
   const { data: plans, ...rest } = usePlans();
-  const plan = plans?.find((p) => p.name === planName);
+  const plan = plans?.find((p) => p.name?.toLowerCase() === planName.toLowerCase());
   return { plan, ...rest };
 };

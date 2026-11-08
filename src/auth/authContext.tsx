@@ -40,6 +40,7 @@ import {
 } from '@/auth/authClient';
 import { flush, track } from '@/lib/activity';
 import { ACTIVITY_EVENTS } from '@/lib/activityEvents';
+import type { PlanLimits } from '@/lib/uploadLimits';
 
 type AuthContextValue = {
   isAuthenticated: boolean;
@@ -47,6 +48,12 @@ type AuthContextValue = {
   user: AuthUser | null;
   role: string | null;
   plan: string;
+  /**
+   * The signed-in user's server-provided upload limits, or null (guest, or a
+   * backend that omits them). Use hooks/useUploadLimits for the effective
+   * limits, which also fall back to /auth/plans.
+   */
+  planLimits: PlanLimits | null;
   login: (credentials: AuthCredentials) => Promise<AuthUser | null>;
   signup: (credentials: AuthSignupCredentials) => Promise<AuthUser | null>;
   logout: () => Promise<void>;
@@ -60,6 +67,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [role, setRole] = useState<string | null>(null);
   const [plan, setPlan] = useState<string>('guest');
+  const [planLimits, setPlanLimits] = useState<PlanLimits | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
@@ -112,7 +120,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           if (result) {
             setUser(result.user);
             setRole(result.user.role ?? null);
-            setPlan((result.user.planName as string | undefined) ?? 'free');
+            setPlan(result.user.planName ?? 'free');
+            setPlanLimits(result.user.planLimits ?? null);
             setIsAuthenticated(true);
             scheduleTokenRefresh(result.accessExpiresAt);
           }
@@ -129,7 +138,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     (me: AuthUser, accessExpiresAt?: number | null) => {
       setUser(me);
       setRole(me.role ?? null);
-      setPlan((me.planName as string | undefined) ?? 'free');
+      setPlan(me.planName ?? 'free');
+      setPlanLimits(me.planLimits ?? null);
       setIsAuthenticated(true);
       scheduleTokenRefresh(accessExpiresAt);
     },
@@ -141,6 +151,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(null);
     setRole(null);
     setPlan('guest');
+    setPlanLimits(null);
     setIsAuthenticated(false);
     clearRefreshTimer();
   }, [clearRefreshTimer]);
@@ -286,11 +297,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       user,
       role,
       plan,
+      planLimits,
       login: handleLogin,
       signup: handleSignup,
       logout: handleLogout,
     }),
-    [handleLogin, handleLogout, handleSignup, isAuthenticated, isLoading, role, user, plan]
+    [handleLogin, handleLogout, handleSignup, isAuthenticated, isLoading, role, user, plan, planLimits]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
