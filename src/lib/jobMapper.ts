@@ -59,9 +59,13 @@ export interface ApiJob {
 export const parseWarnings = (raw: unknown): JobWarning[] => {
   if (!Array.isArray(raw)) return [];
   return raw.flatMap((w) => {
-    const page = Number((w as { page?: unknown })?.page);
     const code = (w as { code?: unknown })?.code;
-    return Number.isInteger(page) && page > 0 && typeof code === 'string' ? [{ page, code }] : [];
+    if (typeof code !== 'string') return [];
+    const rawPage = (w as { page?: unknown })?.page;
+    // No page: a document-wide warning (e.g. text-not-searchable).
+    if (rawPage === undefined || rawPage === null) return [{ code }];
+    const page = Number(rawPage);
+    return Number.isInteger(page) && page > 0 ? [{ page, code }] : [];
   });
 };
 

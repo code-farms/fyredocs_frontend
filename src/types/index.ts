@@ -204,8 +204,8 @@ export interface JobResult {
 }
 
 export interface JobWarning {
-  /** 1-based page number. */
-  page: number;
+  /** 1-based page number; absent for a document-wide warning. */
+  page?: number;
   code: string;
 }
 

@@ -19,6 +19,19 @@ describe('warningMessages', () => {
     ).toEqual(['Glare covered text on pages 1, 4 and 6 — reshoot at a slight angle to avoid the reflection.']);
   });
 
+  it('shows document-wide text warnings once each', () => {
+    expect(
+      warningMessages([
+        { code: 'text-not-searchable' },
+        { code: 'text-not-searchable' },
+        { code: 'text-kept-light-compression' },
+      ])
+    ).toEqual([
+      "This file looks right, but its text may not be searchable or copyable (this happens with some Hindi and other non-Latin fonts).",
+      'We used lighter compression to keep this document’s text searchable, so the file is less compressed than usual.',
+    ]);
+  });
+
   it('ignores unknown codes and empty input', () => {
     expect(warningMessages([{ page: 1, code: 'mystery' }])).toEqual([]);
     expect(warningMessages()).toEqual([]);

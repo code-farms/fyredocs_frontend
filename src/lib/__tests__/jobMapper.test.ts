@@ -23,13 +23,23 @@ describe('mapApiJob warnings', () => {
     const job = mapApiJob(
       {
         ...completed,
-        metadata: { warnings: [{ page: 2, code: 'glare' }, { page: 0, code: 'glare' }, { code: 'glare' }, 'x'] },
+        metadata: { warnings: [{ page: 2, code: 'glare' }, { page: 0, code: 'glare' }, { page: 2 }, 'x'] },
       },
       'scan-to-pdf',
       [],
       {}
     );
     expect(job.result?.warnings).toEqual([{ page: 2, code: 'glare' }]);
+  });
+
+  it('keeps document-wide warnings, which have no page', () => {
+    const job = mapApiJob(
+      { ...completed, metadata: { warnings: [{ code: 'text-not-searchable' }] } },
+      'pdf-to-pdfa',
+      [],
+      {}
+    );
+    expect(job.result?.warnings).toEqual([{ code: 'text-not-searchable' }]);
   });
 
   it('omits warnings when the job has none', () => {
