@@ -21,14 +21,15 @@ import {
 } from '@/components/admin/chartTheme';
 import { computeServerInsights } from '@/lib/insights';
 
-interface ResourcePoint {
+// A type alias, not an interface: chart data/export props take Record<string, unknown>[].
+type ResourcePoint = {
   time: string;
   cpu: number;
   mem: number;
   disk: number;
   usedGB: number;
   freeGB: number;
-}
+};
 
 const MAX_POINTS = 120;
 

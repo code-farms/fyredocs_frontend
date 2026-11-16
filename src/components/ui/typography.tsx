@@ -100,7 +100,9 @@ export interface TextProps
 
 const Text = React.forwardRef<HTMLParagraphElement, TextProps>(
   ({ className, variant, tone, as = "p", asChild = false, ...props }, ref) => {
-    const Comp = asChild ? Slot : as;
+    // `as` is a union of elements, so the ref can't be typed per element; the
+    // public ref type stays HTMLParagraphElement.
+    const Comp = (asChild ? Slot : as) as React.ElementType;
     return <Comp ref={ref} className={cn(textVariants({ variant, tone }), className)} {...props} />;
   },
 );

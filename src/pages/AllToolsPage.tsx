@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Helmet } from 'react-helmet-async';
+import { Seo } from '@/components/common/Seo';
 import { useSearchParams } from 'react-router-dom';
 import { Search, SearchX } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -63,13 +63,7 @@ const AllToolsPage = () => {
 
   return (
     <>
-      <Helmet>
-        <title>All PDF Tools — Fyredocs</title>
-        <meta
-          name="description"
-          content="Browse every Fyredocs tool — organize, optimize, convert, edit, and secure PDFs. Free, fast, and no sign-up required."
-        />
-      </Helmet>
+      <Seo title="All PDF Tools" description="Browse every Fyredocs tool — organize, optimize, convert, edit, and secure PDFs. Free, fast, and no sign-up required." path="/all-tools" />
 
       <div className="container py-12">
         <div className="mb-8 text-center">

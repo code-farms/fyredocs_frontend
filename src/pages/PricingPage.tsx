@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Helmet } from 'react-helmet-async';
+import { Seo } from '@/components/common/Seo';
 import { Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -38,13 +38,7 @@ const PricingPage = () => {
 
   return (
     <>
-      <Helmet>
-        <title>Pricing — Fyredocs</title>
-        <meta
-          name="description"
-          content="Simple, transparent pricing for Fyredocs PDF tools. Use tools as a guest for free, or create an account for bigger limits and longer file retention."
-        />
-      </Helmet>
+      <Seo title="Pricing" description="Simple, transparent pricing for Fyredocs PDF tools. Use tools as a guest for free, or create an account for bigger limits and longer file retention." path="/pricing" />
 
       <div className="container py-12 md:py-16">
         {/* Hero */}

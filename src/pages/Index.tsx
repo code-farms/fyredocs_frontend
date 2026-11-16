@@ -1,4 +1,4 @@
-import { Helmet } from 'react-helmet-async';
+import { Seo } from '@/components/common/Seo';
 import { Link } from 'react-router-dom';
 import { Hero } from '@/components/home/Hero';
 import { ToolsShowcase } from '@/components/home/ToolsShowcase';
@@ -10,13 +10,7 @@ import { Heading, Text } from '@/components/ui/typography';
 const Index = () => {
   return (
     <>
-      <Helmet>
-        <title>Fyredocs — Free Online PDF Tools</title>
-        <meta
-          name="description"
-          content="Merge, split, compress, and convert PDFs online for free. Fast, secure, no installation required."
-        />
-      </Helmet>
+      <Seo title="Home" fullTitle="Fyredocs — Free Online PDF Tools" description="Merge, split, compress, and convert PDFs online for free. Fast, secure, no installation required." path="/" />
 
       <Hero />
 

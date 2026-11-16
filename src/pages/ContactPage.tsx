@@ -1,4 +1,4 @@
-import { Helmet } from 'react-helmet-async';
+import { Seo } from '@/components/common/Seo';
 import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -52,13 +52,7 @@ const ContactPage = () => {
 
   return (
     <>
-      <Helmet>
-        <title>Contact — Fyredocs</title>
-        <meta
-          name="description"
-          content="Questions about Fyredocs PDF tools? Send us a message or email support@fyredocs.com."
-        />
-      </Helmet>
+      <Seo title="Contact" description="Questions about Fyredocs PDF tools? Send us a message or email support@fyredocs.com." path="/contact" />
 
       <div className="container py-12 md:py-16">
         <div className="mx-auto mb-12 max-w-3xl text-center md:mb-16">

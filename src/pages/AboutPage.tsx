@@ -1,4 +1,4 @@
-import { Helmet } from 'react-helmet-async';
+import { Seo } from '@/components/common/Seo';
 import { Lock, Target, Zap } from 'lucide-react';
 import { Heading, Text } from '@/components/ui/typography';
 import { getAllTools } from '@/config/tools';
@@ -34,13 +34,7 @@ const AboutPage = () => {
 
   return (
     <>
-      <Helmet>
-        <title>About — Fyredocs</title>
-        <meta
-          name="description"
-          content="Fyredocs makes PDF tools accessible, fast, and private. Files are encrypted in transit, processed on our servers, and auto-deleted on a plan-based schedule."
-        />
-      </Helmet>
+      <Seo title="About" description="Fyredocs makes PDF tools accessible, fast, and private. Files are encrypted in transit, processed on our servers, and auto-deleted on a plan-based schedule." path="/about" />
 
       <div className="container py-12 md:py-16">
         {/* Hero */}

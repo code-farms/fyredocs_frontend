@@ -32,8 +32,8 @@ import {
   computeGrowthInsights,
   computeReliabilityInsights,
   computeServerInsights,
-  type HealthStatus,
 } from '@/lib/insights';
+import type { HealthStatus } from '@/components/admin/chartTheme';
 import type { ExecutiveKpi } from '@/lib/adminApi';
 
 /** Deep-link to a section, preserving the active `?days=`. */

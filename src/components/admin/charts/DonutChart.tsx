@@ -7,12 +7,13 @@ import {
 } from '@/components/ui/chart';
 import { ANIM, CHART_COLORS, formatNumber } from '@/components/admin/chartTheme';
 
-export interface DonutSegment {
+// A type alias, not an interface: aliases are assignable to Record<string, unknown> (ChartCard export rows).
+export type DonutSegment = {
   name: string;
   value: number;
   /** Optional explicit color; falls back to the rotating chart palette. */
   color?: string;
-}
+};
 
 interface DonutChartProps {
   data: DonutSegment[];

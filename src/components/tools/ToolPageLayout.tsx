@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { Helmet } from 'react-helmet-async';
+import { Seo } from '@/components/common/Seo';
 import { ChevronLeft } from 'lucide-react';
 import { ToolCategory, ToolDefinition } from '@/types';
 import { ToolIcon } from '@/components/icons/ToolIcon';
@@ -41,12 +41,7 @@ const CATEGORY_ICON_BG: Record<ToolCategory, string> = {
 export const ToolPageLayout = ({ tool, children, className }: ToolPageLayoutProps) => {
   return (
     <>
-      <Helmet>
-        <title>{tool.name} — Fyredocs</title>
-        <meta name="description" content={tool.description} />
-        <meta property="og:title" content={`${tool.name} — Fyredocs`} />
-        <meta property="og:description" content={tool.description} />
-      </Helmet>
+      <Seo title={tool.name} description={tool.description} path={tool.route} />
 
       {/* Category accent band */}
       <div className={cn('bg-gradient-to-b pt-8', CATEGORY_GRADIENT[tool.category])}>

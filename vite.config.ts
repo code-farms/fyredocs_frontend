@@ -1,7 +1,43 @@
 /// <reference types="vitest/config" />
-import { defineConfig, loadEnv } from "vite";
+import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
+import { readFileSync } from "fs";
+import {
+  STATIC_PUBLIC_PATHS,
+  buildRobotsTxt,
+  buildSitemapXml,
+  extractToolRoutes,
+  normalizeSiteUrl,
+} from "./src/lib/sitemap";
+
+/**
+ * Build-time SEO output from VITE_SITE_URL (e.g. https://fyredocs.in):
+ * robots.txt always; sitemap.xml and the Plausible script only when the site
+ * URL is set, so local and preview builds never report to analytics.
+ */
+function seoPlugin(siteUrl: string): Plugin {
+  return {
+    name: "fyredocs-seo",
+    transformIndexHtml() {
+      if (!siteUrl) return [];
+      return [
+        {
+          tag: "script",
+          attrs: { defer: true, "data-domain": new URL(siteUrl).hostname, src: "https://plausible.io/js/script.js" },
+          injectTo: "head",
+        },
+      ];
+    },
+    generateBundle() {
+      this.emitFile({ type: "asset", fileName: "robots.txt", source: buildRobotsTxt(siteUrl) });
+      if (!siteUrl) return;
+      const toolsSource = readFileSync(path.resolve(import.meta.dirname, "src/config/tools.ts"), "utf8");
+      const paths = [...STATIC_PUBLIC_PATHS, ...extractToolRoutes(toolsSource)];
+      this.emitFile({ type: "asset", fileName: "sitemap.xml", source: buildSitemapXml(siteUrl, paths) });
+    },
+  };
+}
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -19,6 +55,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   const proxyTarget =
     process.env.API_PROXY_TARGET || env.API_PROXY_TARGET || "http://localhost";
+  const siteUrl = normalizeSiteUrl(process.env.VITE_SITE_URL || env.VITE_SITE_URL);
 
   return {
     server: {
@@ -66,7 +103,7 @@ export default defineConfig(({ mode }) => {
         },
       },
     },
-    plugins: [react()],
+    plugins: [react(), seoPlugin(siteUrl)],
     resolve: {
       alias: {
         "@": path.resolve(import.meta.dirname, "./src"),

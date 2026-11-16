@@ -1,4 +1,4 @@
-import { Helmet } from 'react-helmet-async';
+import { Seo } from '@/components/common/Seo';
 import { Link } from 'react-router-dom';
 import { Calendar, Clock, ArrowRight } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -104,13 +104,7 @@ const PostCardBody = ({ post, linked }: { post: BlogPost; linked: boolean }) => 
 const BlogPage = () => {
   return (
     <>
-      <Helmet>
-        <title>Blog — Fyredocs</title>
-        <meta
-          name="description"
-          content="Tips, tutorials, and insights about working with PDFs — compression, OCR, merging, security, and more."
-        />
-      </Helmet>
+      <Seo title="Blog" description="Tips, tutorials, and insights about working with PDFs — compression, OCR, merging, security, and more." path="/blog" />
 
       <div className="container py-12 md:py-16">
         <div className="mx-auto mb-12 max-w-3xl text-center md:mb-16">
