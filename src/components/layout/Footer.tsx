@@ -32,6 +32,8 @@ const toolColumns: { title: string; tools: ToolDefinition[] }[] = [
 ];
 
 const companyLinks = [
+  { label: 'PDF Converter', href: '/pdf-converter' },
+  { label: 'All Tools', href: '/all-tools' },
   { label: 'About', href: '/about' },
   { label: 'Blog', href: '/blog' },
   { label: 'Pricing', href: '/pricing' },

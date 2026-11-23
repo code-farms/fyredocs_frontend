@@ -2,7 +2,7 @@
 import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
-import { readFileSync } from "fs";
+import { readFileSync, writeFileSync } from "fs";
 import {
   STATIC_PUBLIC_PATHS,
   buildRobotsTxt,
@@ -10,9 +10,74 @@ import {
   extractToolRoutes,
   normalizeSiteUrl,
 } from "./src/lib/sitemap";
+import {
+  DEFAULT_OG_IMAGE_PATH,
+  PDF_CONVERTER_GROUPS,
+  PDF_CONVERTER_PATH,
+  STATIC_PAGE_SEO,
+  buildHubJsonLd,
+  buildToolJsonLd,
+  extractToolBases,
+  getToolSeo,
+  injectHead,
+  injectRoot,
+  renderHubStaticHtml,
+  renderToolStaticHtml,
+} from "./src/lib/toolSeo";
 
 /**
- * Build-time SEO output from VITE_SITE_URL (e.g. https://fyredocs.in):
+ * Writes <route>.html next to index.html for every public tool page, the
+ * /pdf-converter hub and the static pages, each with its own title, meta,
+ * canonical and JSON-LD, and (for tools and the hub) the search copy inside
+ * #root. Crawlers get real content without running JS; the Caddy edge serves
+ * these via `try_files {path} {path}.html /index.html`.
+ */
+function prerenderPublicPages(outDir: string, siteUrl: string, toolsSource: string) {
+  const template = readFileSync(path.join(outDir, "index.html"), "utf8");
+  const tools = extractToolBases(toolsSource);
+  const byId = new Map(tools.map((t) => [t.id, t]));
+  const image = siteUrl ? siteUrl + DEFAULT_OG_IMAGE_PATH : undefined;
+  const canonicalFor = (route: string) => (siteUrl ? siteUrl + route : undefined);
+  const write = (route: string, html: string) => writeFileSync(path.join(outDir, `${route.slice(1)}.html`), html);
+
+  for (const tool of tools) {
+    const seo = getToolSeo(tool, tools);
+    const related = seo.related.flatMap((id) => {
+      const t = byId.get(id);
+      return t ? [{ name: t.name, route: t.route }] : [];
+    });
+    const head = injectHead(template, {
+      title: seo.title,
+      description: seo.metaDescription,
+      canonical: canonicalFor(tool.route),
+      image,
+      jsonLd: buildToolJsonLd(tool, seo, siteUrl),
+    });
+    write(tool.route, injectRoot(head, renderToolStaticHtml(seo, related)));
+  }
+
+  for (const [route, meta] of Object.entries(STATIC_PAGE_SEO)) {
+    if (route === "/") continue;
+    const hubLinks =
+      route === PDF_CONVERTER_PATH
+        ? tools
+            .filter((t) => (PDF_CONVERTER_GROUPS as readonly string[]).includes(t.navGroup))
+            .map((t) => ({ name: t.name, route: t.route }))
+        : null;
+    let html = injectHead(template, {
+      title: meta.title,
+      description: meta.description,
+      canonical: canonicalFor(route),
+      image,
+      jsonLd: hubLinks ? buildHubJsonLd(hubLinks, siteUrl) : undefined,
+    });
+    if (hubLinks) html = injectRoot(html, renderHubStaticHtml(hubLinks));
+    write(route, html);
+  }
+}
+
+/**
+ * Build-time SEO output from VITE_SITE_URL (e.g. https://fyredocs.com):
  * robots.txt always; sitemap.xml and the Plausible script only when the site
  * URL is set, so local and preview builds never report to analytics.
  */
@@ -35,6 +100,11 @@ function seoPlugin(siteUrl: string): Plugin {
       const toolsSource = readFileSync(path.resolve(import.meta.dirname, "src/config/tools.ts"), "utf8");
       const paths = [...STATIC_PUBLIC_PATHS, ...extractToolRoutes(toolsSource)];
       this.emitFile({ type: "asset", fileName: "sitemap.xml", source: buildSitemapXml(siteUrl, paths) });
+    },
+    writeBundle(options) {
+      if (!options.dir) return;
+      const toolsSource = readFileSync(path.resolve(import.meta.dirname, "src/config/tools.ts"), "utf8");
+      prerenderPublicPages(options.dir, siteUrl, toolsSource);
     },
   };
 }

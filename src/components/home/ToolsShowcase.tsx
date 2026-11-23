@@ -45,12 +45,19 @@ export const ToolsShowcase = () => {
           ))}
         </Tabs>
 
-        <div className="mt-10 text-center">
+        <div className="mt-10 flex flex-wrap justify-center gap-x-8 gap-y-3">
           <Link
             to="/all-tools"
             className="inline-flex items-center gap-1.5 text-body font-medium text-primary transition-colors hover:text-primary-hover"
           >
             View all tools
+            <ArrowRight className="h-4 w-4" aria-hidden />
+          </Link>
+          <Link
+            to="/pdf-converter"
+            className="inline-flex items-center gap-1.5 text-body font-medium text-primary transition-colors hover:text-primary-hover"
+          >
+            Free PDF converter
             <ArrowRight className="h-4 w-4" aria-hidden />
           </Link>
         </div>

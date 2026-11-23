@@ -6,14 +6,14 @@ import { getAllTools } from '@/config/tools';
 
 describe('normalizeSiteUrl', () => {
   it('keeps only the origin', () => {
-    expect(normalizeSiteUrl('https://fyredocs.in/')).toBe('https://fyredocs.in');
-    expect(normalizeSiteUrl(' https://fyredocs.in/x/ ')).toBe('https://fyredocs.in');
+    expect(normalizeSiteUrl('https://fyredocs.com/')).toBe('https://fyredocs.com');
+    expect(normalizeSiteUrl(' https://fyredocs.com/x/ ')).toBe('https://fyredocs.com');
   });
   it('returns "" for empty or invalid values', () => {
     expect(normalizeSiteUrl(undefined)).toBe('');
     expect(normalizeSiteUrl('')).toBe('');
-    expect(normalizeSiteUrl('fyredocs.in')).toBe('');
-    expect(normalizeSiteUrl('ftp://fyredocs.in')).toBe('');
+    expect(normalizeSiteUrl('fyredocs.com')).toBe('');
+    expect(normalizeSiteUrl('ftp://fyredocs.com')).toBe('');
   });
 });
 

@@ -61,6 +61,7 @@ const PrivacyPage = lazyWithReload(() => import("./pages/PrivacyPage"));
 const TermsPage = lazyWithReload(() => import("./pages/TermsPage"));
 const CookiePage = lazyWithReload(() => import("./pages/CookiePage"));
 const AllToolsPage = lazyWithReload(() => import("./pages/AllToolsPage"));
+const PdfConverterPage = lazyWithReload(() => import("./pages/PdfConverterPage"));
 const DocsIndexPage = lazyWithReload(() => import("./pages/docs/DocsIndexPage"));
 const DocsPage = lazyWithReload(() => import("./pages/docs/DocsPage"));
 // Lazy on purpose: DocsLayout imports the developer-docs and mermaid configs
@@ -114,6 +115,7 @@ const App = () => (
                     <Route path="/" element={<Index />} />
                     <Route path="/all-tools" element={<AllToolsPage />} />
                     <Route path="/tools" element={<AllToolsPage />} />
+                    <Route path="/pdf-converter" element={<PdfConverterPage />} />
                     {/* Tool routes are public — backend supports guest usage. */}
                     {getAllTools().map((tool) => (
                       <Route

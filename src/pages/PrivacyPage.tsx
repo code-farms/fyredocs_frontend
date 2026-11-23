@@ -1,7 +1,9 @@
+import { Seo } from '@/components/common/Seo';
 
 const PrivacyPage = () => {
   return (
     <>
+      <Seo title="Privacy Policy" description="How Fyredocs collects, uses and protects your data and the files you process with our PDF tools." path="/privacy" />
       <div className="container py-16 md:py-24">
         <div className="max-w-3xl mx-auto">
           <h1 className="text-4xl font-bold mb-8">Privacy Policy</h1>

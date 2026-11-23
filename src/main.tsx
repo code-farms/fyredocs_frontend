@@ -11,4 +11,10 @@ import "@fontsource/inter/800.css";
 import App from "./App.tsx";
 import "./index.css";
 
+// Prerendered pages (dist/<route>.html) carry build-time canonical/og/JSON-LD
+// tags for crawlers. Helmet renders its own once the app mounts, so drop the
+// static copies to avoid duplicates. The attribute is PRERENDER_ATTR in
+// lib/toolSeo.ts, inlined so that module stays out of the entry chunk.
+document.querySelectorAll("[data-prerender]").forEach((node) => node.remove());
+
 createRoot(document.getElementById("root")!).render(<App />);

@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Seo } from '@/components/common/Seo';
 import { ChevronLeft } from 'lucide-react';
@@ -6,6 +6,10 @@ import { ToolCategory, ToolDefinition } from '@/types';
 import { ToolIcon } from '@/components/icons/ToolIcon';
 import { PageHeader } from '@/components/common/PageHeader';
 import { cn } from '@/lib/utils';
+import { getAllTools } from '@/config/tools';
+import { SITE_URL } from '@/lib/seo';
+import { buildToolJsonLd, getToolSeo } from '@/lib/toolSeo';
+import { ToolSeoContent } from './ToolSeoContent';
 
 interface ToolPageLayoutProps {
   tool: ToolDefinition;
@@ -39,9 +43,17 @@ const CATEGORY_ICON_BG: Record<ToolCategory, string> = {
 };
 
 export const ToolPageLayout = ({ tool, children, className }: ToolPageLayoutProps) => {
+  const seo = useMemo(() => getToolSeo(tool, getAllTools()), [tool]);
+  const jsonLd = useMemo(() => buildToolJsonLd(tool, seo, SITE_URL), [tool, seo]);
   return (
     <>
-      <Seo title={tool.name} description={tool.description} path={tool.route} />
+      <Seo
+        title={seo.h1}
+        fullTitle={seo.title}
+        description={seo.metaDescription}
+        path={tool.route}
+        jsonLd={jsonLd}
+      />
 
       {/* Category accent band */}
       <div className={cn('bg-gradient-to-b pt-8', CATEGORY_GRADIENT[tool.category])}>
@@ -66,7 +78,7 @@ export const ToolPageLayout = ({ tool, children, className }: ToolPageLayoutProp
                 >
                   <ToolIcon icon={tool.icon} category={tool.category} size="xl" />
                 </span>
-                {tool.name}
+                {seo.h1}
               </span>
             }
             description={tool.description}
@@ -77,6 +89,8 @@ export const ToolPageLayout = ({ tool, children, className }: ToolPageLayoutProp
 
       {/* Tool content */}
       <div className={cn('container max-w-4xl py-8', className)}>{children}</div>
+
+      <ToolSeoContent seo={seo} />
     </>
   );
 };

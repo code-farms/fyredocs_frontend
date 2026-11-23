@@ -1,7 +1,9 @@
+import { Seo } from '@/components/common/Seo';
 
 const CookiePage = () => {
   return (
     <>
+      <Seo title="Cookie Policy" description="Which cookies Fyredocs uses, why, and how to change your cookie preferences." path="/cookies" />
       <div className="container py-16 md:py-24">
         <div className="max-w-3xl mx-auto">
           <h1 className="text-4xl font-bold mb-8">Cookie Policy</h1>

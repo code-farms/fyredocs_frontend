@@ -7,6 +7,7 @@
 export const STATIC_PUBLIC_PATHS = [
   '/',
   '/all-tools',
+  '/pdf-converter',
   '/pricing',
   '/about',
   '/contact',
