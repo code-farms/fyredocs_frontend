@@ -13,7 +13,7 @@ import {
   FileText,
   Package,
 } from 'lucide-react';
-import { AnimatePresence, FadeIn, motion } from '@/components/ui/animated';
+import { AnimatePresence, FadeIn, m } from '@/components/ui/animated';
 
 interface BatchProgressProps {
   batchJobs: BatchJob[];
@@ -39,7 +39,7 @@ const StatusIcon = ({ status }: { status: BatchJob['status'] }) => {
 
   return (
     <AnimatePresence mode="wait">
-      <motion.span
+      <m.span
         key={status}
         initial={{ opacity: 0, scale: 0.8 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -48,7 +48,7 @@ const StatusIcon = ({ status }: { status: BatchJob['status'] }) => {
         className="inline-flex"
       >
         {iconMap[status] ?? iconMap.pending}
-      </motion.span>
+      </m.span>
     </AnimatePresence>
   );
 };

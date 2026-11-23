@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { ArrowRight, CheckCircle2, FileText, Search, Shield, Trash2, UserX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Heading, Text } from '@/components/ui/typography';
@@ -90,14 +90,14 @@ export const Hero = () => {
           </div>
 
           {/* Right zone: decorative dropzone mock (lg and up) */}
-          <motion.div
+          <m.div
             className="hidden lg:block"
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: 'easeOut' }}
             aria-hidden
           >
-            <motion.div
+            <m.div
               animate={{ y: [0, -8, 0] }}
               transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
               className="mx-auto w-full max-w-md rounded-2xl border bg-card p-6 shadow-lg"
@@ -127,8 +127,8 @@ export const Hero = () => {
                   </div>
                 ))}
               </div>
-            </motion.div>
-          </motion.div>
+            </m.div>
+          </m.div>
         </div>
       </div>
     </section>

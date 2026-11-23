@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { useSpring, useTransform, motion } from 'framer-motion';
+import { useSpring, useTransform, m } from 'framer-motion';
 
 interface AnimatedNumberProps {
   value: number;
@@ -37,5 +37,5 @@ export function AnimatedNumber({
     }
   }, [spring, value]);
 
-  return <motion.span className={className}>{display}</motion.span>;
+  return <m.span className={className}>{display}</m.span>;
 }

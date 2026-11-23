@@ -642,7 +642,9 @@ export const injectRoot = (template: string, body: string): string =>
 
 /** Minimal inline styles so the static content is readable for the moment before the app mounts. */
 const STATIC_STYLE =
-  '<style>.seo-static{max-width:56rem;margin:0 auto;padding:2rem 1rem;font-family:Inter,system-ui,sans-serif;line-height:1.6}.seo-static a{color:inherit}</style>';
+  // body{margin:0} matches Tailwind's preflight: if the first paint beats the
+  // stylesheet, the browser's default 8px margin otherwise snaps away (CLS).
+  '<style>body{margin:0}.seo-static{max-width:56rem;margin:0 auto;padding:2rem 1rem;font-family:Inter,system-ui,sans-serif;line-height:1.6}.seo-static a{color:inherit}</style>';
 
 const linkList = (links: readonly SeoLink[]): string =>
   `<ul>${links.map((l) => `<li><a href="${escapeHtml(l.route)}">${escapeHtml(l.name)}</a></li>`).join('')}</ul>`;

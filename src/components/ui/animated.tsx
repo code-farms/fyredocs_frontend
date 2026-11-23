@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { ReactNode } from 'react';
-import { motion, AnimatePresence, Variants } from 'framer-motion';
+import { m, AnimatePresence, Variants } from 'framer-motion';
 
 // --- Shared transition presets ---
 
@@ -55,7 +55,7 @@ export const FadeIn = ({
   slide = false,
   duration = 0.2,
 }: FadeInProps) => (
-  <motion.div
+  <m.div
     key={motionKey}
     variants={slide ? fadeSlideVariants : fadeVariants}
     initial="hidden"
@@ -65,7 +65,7 @@ export const FadeIn = ({
     className={className}
   >
     {children}
-  </motion.div>
+  </m.div>
 );
 
 interface AnimatedSwitchProps {
@@ -82,7 +82,7 @@ export const AnimatedSwitch = ({
   className,
 }: AnimatedSwitchProps) => (
   <AnimatePresence mode="wait">
-    <motion.div
+    <m.div
       key={switchKey}
       variants={fadeSlideVariants}
       initial="hidden"
@@ -92,7 +92,7 @@ export const AnimatedSwitch = ({
       className={className}
     >
       {children}
-    </motion.div>
+    </m.div>
   </AnimatePresence>
 );
 
@@ -110,7 +110,7 @@ export const AnimatedCollapse = ({
 }: AnimatedCollapseProps) => (
   <AnimatePresence>
     {show && (
-      <motion.div
+      <m.div
         variants={collapseVariants}
         initial="hidden"
         animate="visible"
@@ -119,7 +119,7 @@ export const AnimatedCollapse = ({
         className={className}
       >
         {children}
-      </motion.div>
+      </m.div>
     )}
   </AnimatePresence>
 );
@@ -138,7 +138,7 @@ export const AnimatedDropdown = ({
 }: AnimatedDropdownProps) => (
   <AnimatePresence>
     {show && (
-      <motion.div
+      <m.div
         variants={dropdownVariants}
         initial="hidden"
         animate="visible"
@@ -147,7 +147,7 @@ export const AnimatedDropdown = ({
         className={className}
       >
         {children}
-      </motion.div>
+      </m.div>
     )}
   </AnimatePresence>
 );
@@ -167,7 +167,7 @@ export const AnimatedListItem = ({
   motionKey,
   layout = false,
 }: AnimatedListItemProps) => (
-  <motion.div
+  <m.div
     key={motionKey}
     variants={listItemVariants}
     initial="hidden"
@@ -178,8 +178,8 @@ export const AnimatedListItem = ({
     className={className}
   >
     {children}
-  </motion.div>
+  </m.div>
 );
 
 /** Re-export AnimatePresence for convenience */
-export { AnimatePresence, motion };
+export { AnimatePresence, m };

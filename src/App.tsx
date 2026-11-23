@@ -29,9 +29,16 @@
  * crash can still offer navigation, and inside auth so the boundary's own UI can
  * read session state.
  */
+import { Suspense } from "react";
 import { lazyWithReload } from "@/lib/lazyWithReload";
 import { HelmetProvider } from "react-helmet-async";
-import { MotionConfig } from "framer-motion";
+import { domAnimation, LazyMotion, MotionConfig } from "framer-motion";
+
+// Components use the slim `m` instead of `motion`, with only the domAnimation
+// feature set (no layout/drag code), which trims ~13 kB gzip off framer-motion.
+// Features are passed synchronously on purpose: loading them async delayed the
+// home hero's fade-in, and so LCP, by ~0.6 s on a throttled phone. `strict`
+// throws if a full `motion.*` component sneaks back in.
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -44,9 +51,7 @@ import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 import { ScrollToTop } from "@/components/common/ScrollToTop";
 import { CookieConsent } from "@/components/common/CookieConsent";
 import { Layout } from "@/components/layout/Layout";
-import { AdminLayout } from "@/components/layout/AdminLayout";
-import { UserLayout } from "@/components/layout/UserLayout";
-import { RoleLayout } from "@/components/layout/RoleLayout";
+import { PageLoading } from "@/components/common/LoadingState";
 import { getAllTools } from "@/config/tools";
 import { signupEnabled } from "@/lib/features";
 
@@ -64,6 +69,18 @@ const AllToolsPage = lazyWithReload(() => import("./pages/AllToolsPage"));
 const PdfConverterPage = lazyWithReload(() => import("./pages/PdfConverterPage"));
 const DocsIndexPage = lazyWithReload(() => import("./pages/docs/DocsIndexPage"));
 const DocsPage = lazyWithReload(() => import("./pages/docs/DocsPage"));
+// Lazy on purpose: the signed-in shells pull in the sidebar, admin API client,
+// realtime metrics and date-fns. As static imports they sat in the entry chunk
+// every public visitor downloads, though only signed-in users ever render them.
+const RoleLayout = lazyWithReload(() =>
+  import("@/components/layout/RoleLayout").then((m) => ({ default: m.RoleLayout }))
+);
+const UserLayout = lazyWithReload(() =>
+  import("@/components/layout/UserLayout").then((m) => ({ default: m.UserLayout }))
+);
+const AdminLayout = lazyWithReload(() =>
+  import("@/components/layout/AdminLayout").then((m) => ({ default: m.AdminLayout }))
+);
 // Lazy on purpose: DocsLayout imports the developer-docs and mermaid configs
 // (~400 kB of source); a static import put all of it in the entry chunk that
 // every visitor downloads.
@@ -99,6 +116,7 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <HelmetProvider>
+  <LazyMotion features={domAnimation} strict>
   <MotionConfig reducedMotion="user">
   <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
     <QueryClientProvider client={queryClient}>
@@ -110,6 +128,9 @@ const App = () => (
             <ErrorBoundary>
               <ScrollToTop />
               <CookieConsent />
+              {/* Catches the lazy signed-in layouts above. Public pages never reach
+                  it: Layout is static and has its own Suspense around <Outlet>. */}
+              <Suspense fallback={<PageLoading />}>
               <Routes>
                   <Route element={<Layout />}>
                     <Route path="/" element={<Index />} />
@@ -190,6 +211,7 @@ const App = () => (
                     </Route>
                   </Route>
               </Routes>
+              </Suspense>
             </ErrorBoundary>
           </AuthProvider>
         </BrowserRouter>
@@ -197,6 +219,7 @@ const App = () => (
     </QueryClientProvider>
   </ThemeProvider>
   </MotionConfig>
+  </LazyMotion>
   </HelmetProvider>
 );
 

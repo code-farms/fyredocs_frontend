@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, m } from 'framer-motion';
 import { Cookie } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -100,7 +100,7 @@ export function CookieConsent() {
     <>
       <AnimatePresence>
         {!customizeOpen && (
-          <motion.div
+          <m.div
             role="dialog"
             aria-label="Cookie consent"
             aria-live="polite"
@@ -133,7 +133,7 @@ export function CookieConsent() {
                 </Button>
               </div>
             </div>
-          </motion.div>
+          </m.div>
         )}
       </AnimatePresence>
 
