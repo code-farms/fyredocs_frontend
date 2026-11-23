@@ -1,7 +1,8 @@
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Link } from 'react-router-dom';
 import { BookOpen, Wrench, FileText, Shield, HelpCircle } from 'lucide-react';
-import { Helmet } from 'react-helmet-async';
+import { Seo } from '@/components/common/Seo';
+import { STATIC_PAGE_SEO } from '@/lib/toolSeo';
 import { Heading, Text } from '@/components/ui/typography';
 
 const categories = [
@@ -45,10 +46,12 @@ const categories = [
 const DocsIndexPage = () => {
   return (
     <>
-      <Helmet>
-        <title>Documentation - Fyredocs</title>
-        <meta name="description" content="Learn how to use Fyredocs PDF tools. Browse tool guides, supported formats, security info, and FAQ." />
-      </Helmet>
+      <Seo
+        title="Help Guides"
+        fullTitle={STATIC_PAGE_SEO['/docs'].title}
+        description={STATIC_PAGE_SEO['/docs'].description}
+        path="/docs"
+      />
       <div className="px-8 py-16">
         <div className="max-w-3xl mx-auto text-center mb-16">
           <Heading level="display" responsive className="mb-6">

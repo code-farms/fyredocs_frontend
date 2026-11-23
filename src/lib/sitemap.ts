@@ -42,9 +42,11 @@ export const extractToolRoutes = (toolsSource: string): string[] => {
 const escapeXml = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 
-export const buildSitemapXml = (siteUrl: string, paths: readonly string[]): string => {
+/** `lastmod` (YYYY-MM-DD, the build date) is applied to every URL when given. */
+export const buildSitemapXml = (siteUrl: string, paths: readonly string[], lastmod?: string): string => {
   const unique = [...new Set(paths)];
-  const urls = unique.map((p) => `  <url><loc>${escapeXml(siteUrl + (p === '/' ? '/' : p))}</loc></url>`);
+  const mod = lastmod ? `<lastmod>${escapeXml(lastmod)}</lastmod>` : '';
+  const urls = unique.map((p) => `  <url><loc>${escapeXml(siteUrl + (p === '/' ? '/' : p))}</loc>${mod}</url>`);
   return ['<?xml version="1.0" encoding="UTF-8"?>', '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">', ...urls, '</urlset>', ''].join('\n');
 };
 

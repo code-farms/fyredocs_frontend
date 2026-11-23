@@ -23,6 +23,7 @@ export type ToolId =
   | 'pdf-to-word'
   | 'pdf-to-excel'
   | 'pdf-to-image'
+  | 'pdf-to-jpg'
   | 'pdf-to-ppt'
   | 'pdf-to-html'
   | 'pdf-to-text'

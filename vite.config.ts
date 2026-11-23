@@ -2,7 +2,7 @@
 import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
-import { readFileSync, writeFileSync } from "fs";
+import { mkdirSync, readFileSync, writeFileSync } from "fs";
 import {
   STATIC_PUBLIC_PATHS,
   buildRobotsTxt,
@@ -15,22 +15,36 @@ import {
   PDF_CONVERTER_GROUPS,
   PDF_CONVERTER_PATH,
   STATIC_PAGE_SEO,
+  buildDocJsonLd,
+  buildHomeJsonLd,
   buildHubJsonLd,
   buildToolJsonLd,
+  docPath,
+  docDescription,
+  docTitle,
   extractToolBases,
   getToolSeo,
   injectHead,
   injectRoot,
+  renderDocStaticHtml,
+  renderDocsIndexStaticHtml,
+  renderHomeStaticHtml,
   renderHubStaticHtml,
   renderToolStaticHtml,
 } from "./src/lib/toolSeo";
+import { docs } from "./src/config/docs";
+
+/** The SPA shell Caddy serves for routes with no prerendered file. */
+const SHELL_FILE = "_shell.html";
 
 /**
- * Writes <route>.html next to index.html for every public tool page, the
- * /pdf-converter hub and the static pages, each with its own title, meta,
- * canonical and JSON-LD, and (for tools and the hub) the search copy inside
- * #root. Crawlers get real content without running JS; the Caddy edge serves
- * these via `try_files {path} {path}.html /index.html`.
+ * Prerenders every public page so crawlers get real content without running JS:
+ * - `<route>.html` for each tool, the /pdf-converter hub, the static pages and
+ *   each /docs guide, with its own title, meta, canonical and JSON-LD, and
+ *   (except plain static pages) the page copy inside #root;
+ * - `index.html` becomes the home page, and the untouched shell is kept as
+ *   `_shell.html` for every other route, so app pages never flash home copy.
+ * The Caddy edge serves these via `try_files {path} {path}.html /_shell.html`.
  */
 function prerenderPublicPages(outDir: string, siteUrl: string, toolsSource: string) {
   const template = readFileSync(path.join(outDir, "index.html"), "utf8");
@@ -38,7 +52,23 @@ function prerenderPublicPages(outDir: string, siteUrl: string, toolsSource: stri
   const byId = new Map(tools.map((t) => [t.id, t]));
   const image = siteUrl ? siteUrl + DEFAULT_OG_IMAGE_PATH : undefined;
   const canonicalFor = (route: string) => (siteUrl ? siteUrl + route : undefined);
-  const write = (route: string, html: string) => writeFileSync(path.join(outDir, `${route.slice(1)}.html`), html);
+  const write = (file: string, html: string) => {
+    const target = path.join(outDir, file);
+    mkdirSync(path.dirname(target), { recursive: true });
+    writeFileSync(target, html);
+  };
+  const writeRoute = (route: string, html: string) => write(`${route.slice(1)}.html`, html);
+  const page = (route: string, title: string, description: string, jsonLd?: Record<string, unknown>[], body?: string) => {
+    const head = injectHead(template, { title, description, canonical: canonicalFor(route), image, jsonLd });
+    return body ? injectRoot(head, body) : head;
+  };
+
+  write(SHELL_FILE, template);
+
+  const home = STATIC_PAGE_SEO["/"];
+  const popular = ["pdf-to-word", "pdf-to-jpg", "compress", "merge", "word-to-pdf", "image-to-pdf", "split", "pdf-to-excel"]
+    .flatMap((id) => (byId.has(id) ? [{ name: byId.get(id)!.name, route: byId.get(id)!.route }] : []));
+  write("index.html", page("/", home.title, home.description, buildHomeJsonLd(siteUrl), renderHomeStaticHtml(popular)));
 
   for (const tool of tools) {
     const seo = getToolSeo(tool, tools);
@@ -46,33 +76,34 @@ function prerenderPublicPages(outDir: string, siteUrl: string, toolsSource: stri
       const t = byId.get(id);
       return t ? [{ name: t.name, route: t.route }] : [];
     });
-    const head = injectHead(template, {
-      title: seo.title,
-      description: seo.metaDescription,
-      canonical: canonicalFor(tool.route),
-      image,
-      jsonLd: buildToolJsonLd(tool, seo, siteUrl),
-    });
-    write(tool.route, injectRoot(head, renderToolStaticHtml(seo, related)));
+    writeRoute(
+      tool.route,
+      page(tool.route, seo.title, seo.metaDescription, buildToolJsonLd(tool, seo, siteUrl), renderToolStaticHtml(seo, related)),
+    );
   }
 
+  const hubLinks = tools
+    .filter((t) => (PDF_CONVERTER_GROUPS as readonly string[]).includes(t.navGroup))
+    .map((t) => ({ name: t.name, route: t.route }));
   for (const [route, meta] of Object.entries(STATIC_PAGE_SEO)) {
     if (route === "/") continue;
-    const hubLinks =
-      route === PDF_CONVERTER_PATH
-        ? tools
-            .filter((t) => (PDF_CONVERTER_GROUPS as readonly string[]).includes(t.navGroup))
-            .map((t) => ({ name: t.name, route: t.route }))
-        : null;
-    let html = injectHead(template, {
-      title: meta.title,
-      description: meta.description,
-      canonical: canonicalFor(route),
-      image,
-      jsonLd: hubLinks ? buildHubJsonLd(hubLinks, siteUrl) : undefined,
-    });
-    if (hubLinks) html = injectRoot(html, renderHubStaticHtml(hubLinks));
-    write(route, html);
+    if (route === PDF_CONVERTER_PATH) {
+      writeRoute(route, page(route, meta.title, meta.description, buildHubJsonLd(hubLinks, siteUrl), renderHubStaticHtml(hubLinks)));
+    } else if (route === "/docs") {
+      writeRoute(route, page(route, meta.title, meta.description, undefined, renderDocsIndexStaticHtml(docs)));
+    } else {
+      writeRoute(route, page(route, meta.title, meta.description));
+    }
+  }
+
+  for (const doc of docs) {
+    const route = docPath(doc.slug);
+    const tool = doc.toolId ? byId.get(doc.toolId) : undefined;
+    const toolLink = tool ? { name: tool.name, route: tool.route } : undefined;
+    writeRoute(
+      route,
+      page(route, docTitle(doc), docDescription(doc), buildDocJsonLd(doc, siteUrl), renderDocStaticHtml(doc, toolLink)),
+    );
   }
 }
 
@@ -98,8 +129,9 @@ function seoPlugin(siteUrl: string): Plugin {
       this.emitFile({ type: "asset", fileName: "robots.txt", source: buildRobotsTxt(siteUrl) });
       if (!siteUrl) return;
       const toolsSource = readFileSync(path.resolve(import.meta.dirname, "src/config/tools.ts"), "utf8");
-      const paths = [...STATIC_PUBLIC_PATHS, ...extractToolRoutes(toolsSource)];
-      this.emitFile({ type: "asset", fileName: "sitemap.xml", source: buildSitemapXml(siteUrl, paths) });
+      const paths = [...STATIC_PUBLIC_PATHS, ...extractToolRoutes(toolsSource), "/docs", ...docs.map((d) => docPath(d.slug))];
+      const lastmod = new Date().toISOString().slice(0, 10);
+      this.emitFile({ type: "asset", fileName: "sitemap.xml", source: buildSitemapXml(siteUrl, paths, lastmod) });
     },
     writeBundle(options) {
       if (!options.dir) return;

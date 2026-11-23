@@ -14,6 +14,8 @@ export interface ToolSeoBase {
   description: string;
   route: string;
   navGroup: string;
+  /** Files allowed per job, for the limits FAQ. */
+  maxFiles?: number;
 }
 
 export interface Faq {
@@ -41,8 +43,10 @@ export interface SeoLink {
 
 const BRAND = 'Fyredocs';
 
-/** Default social preview image (public/logo.png). */
-export const DEFAULT_OG_IMAGE_PATH = '/logo.png';
+/** Social preview image, 1200×630 (public/og-image.jpg). */
+export const DEFAULT_OG_IMAGE_PATH = '/og-image.jpg';
+export const OG_IMAGE_WIDTH = 1200;
+export const OG_IMAGE_HEIGHT = 630;
 const CONVERT_GROUPS = new Set(['convert-from-pdf', 'convert-to-pdf', 'libreoffice']);
 
 /** "PDF to Word" → { from: "PDF", to: "Word" }; anything else → null. */
@@ -51,24 +55,30 @@ const splitConversion = (name: string): { from: string; to: string } | null => {
   return m ? { from: m[1], to: m[2] } : null;
 };
 
-const COMMON_FAQS: Faq[] = [
-  {
-    q: 'Is Fyredocs free to use?',
-    a: 'Yes. Every tool works for free as a guest, with no sign-up and no watermark. A free account raises the file size limits and keeps your files for longer.',
-  },
-  {
-    q: 'Do I need to install anything or create an account?',
-    a: 'No. Fyredocs runs in your browser on Windows, Mac, Linux, Android and iPhone. Open the tool, upload your file and download the result.',
-  },
-  {
-    q: 'Are my files safe?',
-    a: 'Files are encrypted in transit, processed on our servers and deleted automatically on a schedule based on your plan. We never share your documents.',
-  },
-  {
-    q: 'What is the maximum file size?',
-    a: 'Guests can upload files up to 20 MB each and up to 5 files per job. Signed-in plans allow larger files and more files per job.',
-  },
-];
+/**
+ * FAQs every tool page shares, with the tool's own name and file limit so the
+ * pages are not word-for-word copies. Facts here must match the backend:
+ * guest plan 20 MB per file (auth-service plans table), guest files deleted
+ * after GUEST_JOB_TTL (30 min default), no watermark on any output.
+ */
+const commonFaqs = (tool: ToolSeoBase): Faq[] => {
+  const files = tool.maxFiles ?? 1;
+  const perJob = files > 1 ? `up to ${Math.min(files, 5)} files at a time` : 'one file at a time';
+  return [
+    {
+      q: `Is ${tool.name} on Fyredocs free?`,
+      a: `Yes. ${tool.name} is free to use as a guest, with no sign-up and no watermark on your files. A free account raises the size limits and keeps your files for longer.`,
+    },
+    {
+      q: 'Are my files safe?',
+      a: 'Files are encrypted in transit and processed on our servers. As a guest, your files are deleted automatically about 30 minutes after processing; signed-in plans keep them for longer. We never share your documents.',
+    },
+    {
+      q: `How large a file can I use with ${tool.name}?`,
+      a: `Guests can upload files up to 20 MB each, ${perJob}. It works in any modern browser on Windows, Mac, Android and iPhone — nothing to install.`,
+    },
+  ];
+};
 
 /** Hand-written copy for the highest-volume searches. Missing fields fall back to the generated defaults. */
 const OVERRIDES: Record<string, Partial<ToolSeo>> = {
@@ -92,7 +102,7 @@ const OVERRIDES: Record<string, Partial<ToolSeo>> = {
     related: ['word-to-pdf', 'ocr', 'pdf-to-excel', 'compress', 'edit-pdf'],
   },
   'word-to-pdf': {
-    title: 'Word to PDF Converter – Free Online DOC/DOCX to PDF | Fyredocs',
+    title: 'Word to PDF Converter – Free DOC/DOCX to PDF | Fyredocs',
     metaDescription:
       'Convert Word documents (DOC, DOCX) to PDF online for free. Keeps fonts, images and layout. No signup, no watermark, works on any device.',
     h1: 'Word to PDF Converter',
@@ -117,7 +127,7 @@ const OVERRIDES: Record<string, Partial<ToolSeo>> = {
         a: 'Text and vector graphics stay sharp. Images are re-encoded at a lower resolution, which is usually not noticeable on screen.',
       },
     ],
-    related: ['merge', 'pdf-to-word', 'image-to-pdf', 'split', 'pdf-to-image'],
+    related: ['merge', 'pdf-to-word', 'image-to-pdf', 'split', 'pdf-to-jpg'],
   },
   merge: {
     title: 'Merge PDF – Combine PDF Files Online Free | Fyredocs',
@@ -137,23 +147,42 @@ const OVERRIDES: Record<string, Partial<ToolSeo>> = {
       'Break one PDF into several smaller files — every page on its own, or by the page ranges you choose. Useful for sending only the pages someone needs.',
     related: ['merge', 'extract-pages', 'remove-pages', 'compress', 'reorder'],
   },
-  'pdf-to-image': {
-    title: 'PDF to Image Converter – PDF to PNG Online Free | Fyredocs',
+  'pdf-to-jpg': {
+    title: 'PDF to JPG Converter – Free Online, High Quality | Fyredocs',
     metaDescription:
-      'Convert PDF pages to high-quality PNG images online for free. Every page becomes an image. No signup, no watermark, works on any device.',
-    h1: 'PDF to Image Converter',
+      'Convert PDF to JPG online for free. Every page becomes a high-quality JPG image you can share anywhere. No signup, no watermark, works on mobile.',
+    h1: 'PDF to JPG Converter',
     intro:
-      'Save every page of a PDF as a high-quality PNG image. Use the images in presentations, social posts, chats or anywhere a PDF is not accepted.',
-    related: ['image-to-pdf', 'pdf-to-word', 'compress', 'split', 'pdf-to-ppt'],
+      'Turn every page of a PDF into a JPG image. JPGs open everywhere — WhatsApp, Instagram, email, online forms and photo galleries — so you can share a page without sending the whole PDF.',
+    faqs: [
+      {
+        q: 'What do I get for a PDF with several pages?',
+        a: 'Each page becomes its own JPG. A one-page PDF downloads as a single JPG; a multi-page PDF downloads as a ZIP file with one JPG per page, in order.',
+      },
+      {
+        q: 'Should I choose JPG or PNG?',
+        a: 'JPG files are smaller and ideal for sharing and uploading. Choose PDF to PNG when you need lossless quality for sharp text or diagrams.',
+      },
+    ],
+    related: ['image-to-pdf', 'pdf-to-image', 'compress', 'split', 'pdf-to-word'],
+  },
+  'pdf-to-image': {
+    title: 'PDF to PNG Converter – Free, Lossless Quality | Fyredocs',
+    metaDescription:
+      'Convert PDF pages to lossless PNG images online for free. Sharp text and diagrams, one image per page. No signup, no watermark.',
+    h1: 'PDF to PNG Converter',
+    intro:
+      'Save every page of a PDF as a lossless PNG image — the best choice when text, charts and diagrams must stay perfectly sharp. Need smaller files for sharing? Use PDF to JPG instead.',
+    related: ['pdf-to-jpg', 'image-to-pdf', 'pdf-to-word', 'compress', 'split'],
   },
   'image-to-pdf': {
-    title: 'Image to PDF Converter – JPG/PNG to PDF Online Free | Fyredocs',
+    title: 'JPG to PDF Converter – Images to PDF Free | Fyredocs',
     metaDescription:
       'Convert JPG, PNG and other images to PDF online for free. Combine many photos into one PDF. No signup, no watermark, works on mobile.',
-    h1: 'Image to PDF Converter (JPG to PDF)',
+    h1: 'JPG to PDF Converter',
     intro:
       'Turn photos and images (JPG, PNG and more) into a single PDF document. Perfect for scanned documents, receipts, certificates and assignment pages photographed on your phone.',
-    related: ['pdf-to-image', 'merge', 'compress', 'scan-to-pdf', 'ocr'],
+    related: ['pdf-to-jpg', 'merge', 'compress', 'scan-to-pdf', 'ocr'],
   },
   'pdf-to-excel': {
     title: 'PDF to Excel Converter – Free Online PDF to XLSX | Fyredocs',
@@ -174,7 +203,7 @@ const OVERRIDES: Record<string, Partial<ToolSeo>> = {
     related: ['pdf-to-excel', 'word-to-pdf', 'powerpoint-to-pdf', 'merge', 'compress'],
   },
   'powerpoint-to-pdf': {
-    title: 'PowerPoint to PDF Converter – PPT/PPTX to PDF Free | Fyredocs',
+    title: 'PowerPoint to PDF – PPT/PPTX to PDF Free | Fyredocs',
     metaDescription:
       'Convert PowerPoint presentations (PPT, PPTX) to PDF online for free. One slide per page, layout kept. No signup, no watermark.',
     h1: 'PowerPoint to PDF Converter',
@@ -243,6 +272,86 @@ const OVERRIDES: Record<string, Partial<ToolSeo>> = {
       'Scanned PDFs are just pictures of text. OCR (optical character recognition) adds a hidden text layer so you can search, select and copy the words.',
     related: ['pdf-to-word', 'scan-to-pdf', 'pdf-to-text', 'compress', 'image-to-pdf'],
   },
+  'remove-pages': {
+    metaDescription:
+      'Delete pages from a PDF online for free. Pick the pages you do not need and download a cleaner PDF. No signup, no watermark.',
+    h1: 'Remove Pages from PDF',
+    intro:
+      'Delete blank, duplicate or unwanted pages from a PDF. Choose the pages to drop and download a clean copy — the rest of the document stays exactly as it was.',
+    related: ['extract-pages', 'split', 'reorder', 'merge', 'compress'],
+  },
+  'extract-pages': {
+    metaDescription:
+      'Extract pages from a PDF online for free. Save only the pages you need as a new PDF. No signup, no watermark, works on any device.',
+    h1: 'Extract Pages from PDF',
+    intro:
+      'Pull just the pages you need — a single certificate page, a chapter or a few slides — into a new PDF, without changing the original.',
+    related: ['split', 'remove-pages', 'merge', 'reorder', 'compress'],
+  },
+  reorder: {
+    metaDescription:
+      'Reorder PDF pages online for free. Drag pages into the right order and save the PDF. No signup, no watermark, works on any device.',
+    h1: 'Reorder PDF Pages',
+    intro:
+      'Fix pages that were scanned or merged in the wrong order. Drag the page thumbnails into place and download the corrected PDF.',
+    related: ['rotate', 'merge', 'remove-pages', 'split', 'extract-pages'],
+  },
+  watermark: {
+    metaDescription:
+      'Add a text or image watermark to PDF online for free. Choose position and opacity to brand or protect documents. No signup needed.',
+    h1: 'Add Watermark to PDF',
+    intro:
+      'Stamp a text or logo watermark on every page — "Confidential", "Draft" or your company logo — with the position, size and opacity you choose.',
+    related: ['password-protect', 'add-page-numbers', 'sign-pdf', 'edit-pdf', 'compress'],
+  },
+  'add-page-numbers': {
+    metaDescription:
+      'Add page numbers to a PDF online for free. Choose position and style, then download the numbered PDF. No signup, no watermark.',
+    h1: 'Add Page Numbers to PDF',
+    intro:
+      'Number the pages of a report, thesis or assignment automatically. Pick where the numbers go and download the numbered PDF.',
+    related: ['merge', 'watermark', 'edit-pdf', 'reorder', 'compress'],
+  },
+  'repair-pdf': {
+    metaDescription:
+      'Repair corrupted or damaged PDF files online for free. Recover PDFs that will not open or show errors. No signup, no watermark.',
+    h1: 'Repair PDF',
+    intro:
+      'Try to recover a PDF that will not open, shows errors or was damaged during download. Fyredocs rebuilds the file structure and saves whatever content can be read.',
+    related: ['compress', 'pdf-to-pdfa', 'merge', 'ocr', 'pdf-to-word'],
+  },
+  'pdf-to-text': {
+    metaDescription:
+      'Extract text from PDF online for free. Save the text of any PDF as a plain .txt file. No signup, no watermark, works on any device.',
+    h1: 'PDF to Text Converter',
+    intro:
+      'Pull all the text out of a PDF into a plain .txt file you can search, copy or paste anywhere. For scanned PDFs, run OCR first.',
+    related: ['ocr', 'pdf-to-word', 'pdf-to-html', 'pdf-to-excel', 'compress'],
+  },
+  'html-to-pdf': {
+    metaDescription:
+      'Convert HTML files to PDF online for free. Keep layout, images and styles in a shareable PDF. No signup, no watermark.',
+    h1: 'HTML to PDF Converter',
+    intro:
+      'Turn a saved web page or HTML file into a PDF that keeps its layout, images and styling — handy for receipts, reports and archiving pages.',
+    related: ['pdf-to-html', 'word-to-pdf', 'merge', 'compress', 'image-to-pdf'],
+  },
+  'scan-to-pdf': {
+    metaDescription:
+      'Turn scanned images and phone photos into a clean PDF online for free, with optional OCR. No signup, no watermark.',
+    h1: 'Scan to PDF',
+    intro:
+      'Convert photos of paper documents into a tidy PDF. Optional OCR makes the text searchable so you can find and copy words later.',
+    related: ['image-to-pdf', 'ocr', 'merge', 'compress', 'pdf-to-word'],
+  },
+  'pdf-to-pdfa': {
+    metaDescription:
+      'Convert PDF to PDF/A (PDF/A-2b) online for free for long-term archiving and e-filing. No signup, no watermark.',
+    h1: 'PDF to PDF/A Converter',
+    intro:
+      'Convert a PDF to PDF/A-2b, the archival standard many courts, government portals and record systems require for long-term storage.',
+    related: ['repair-pdf', 'compress', 'pdf-to-word', 'merge', 'ocr'],
+  },
 };
 
 const defaultH1 = (tool: ToolSeoBase): string =>
@@ -252,11 +361,17 @@ const defaultSteps = (tool: ToolSeoBase): string[] => {
   const conv = splitConversion(tool.name);
   const input = conv ? conv.from : 'PDF';
   return [
-    `Upload your ${input} file — drag and drop it or click to choose a file.`,
-    conv ? `Fyredocs converts it to ${conv.to} automatically.` : 'Choose your options and start the job.',
-    'Download the result. Files are deleted automatically afterwards.',
+    `Upload your ${input} file — drag and drop it or tap to choose a file.`,
+    'Check the options and start the job.',
+    conv ? `Download your ${conv.to} file when processing finishes.` : 'Download the finished PDF when processing finishes.',
   ];
 };
+
+/** "<H1> – Free Online, No Signup | Fyredocs", shortened to stay within ~60 chars of a search result title. */
+const defaultTitle = (h1: string): string =>
+  [`${h1} – Free Online, No Signup | ${BRAND}`, `${h1} – Free Online | ${BRAND}`, `${h1} | ${BRAND}`].find(
+    (t) => t.length <= 60,
+  ) ?? `${h1} | ${BRAND}`;
 
 /** Merged SEO copy for a tool: hand-written overrides first, generated defaults for the rest. */
 export const getToolSeo = (tool: ToolSeoBase, siblings: readonly ToolSeoBase[] = []): ToolSeo => {
@@ -265,13 +380,14 @@ export const getToolSeo = (tool: ToolSeoBase, siblings: readonly ToolSeoBase[] =
   const related =
     o.related ?? siblings.filter((t) => t.navGroup === tool.navGroup && t.id !== tool.id).slice(0, 5).map((t) => t.id);
   return {
-    title: o.title ?? `${h1} – Free Online, No Signup | ${BRAND}`,
+    title: o.title ?? defaultTitle(h1),
     metaDescription:
-      o.metaDescription ?? `${tool.description}. Free online ${h1.toLowerCase()} — no signup, no watermark, works on any device.`,
+      o.metaDescription ??
+      `Free online ${h1}: ${tool.description.charAt(0).toLowerCase()}${tool.description.slice(1)}. No signup, no watermark, works on any device.`,
     h1,
-    intro: o.intro ?? `${tool.description} online for free with ${BRAND}. No installation, no account and no watermark.`,
+    intro: o.intro ?? `${tool.description} online for free. No installation, no account and no watermark.`,
     steps: o.steps ?? defaultSteps(tool),
-    faqs: [...(o.faqs ?? []), ...COMMON_FAQS],
+    faqs: [...(o.faqs ?? []), ...commonFaqs(tool)],
     related,
   };
 };
@@ -284,7 +400,7 @@ export const PDF_CONVERTER_PATH = '/pdf-converter';
 export const PDF_CONVERTER_GROUPS = ['convert-from-pdf', 'convert-to-pdf', 'libreoffice'] as const;
 
 export const PDF_CONVERTER_SEO = {
-  title: 'Free PDF Converter – PDF to Word, Excel, JPG & More | Fyredocs',
+  title: 'Free PDF Converter – Word, Excel, JPG & More | Fyredocs',
   metaDescription:
     'Free online PDF converter. Convert PDF to Word, Excel, PowerPoint and images, or Word, Excel, PPT and JPG to PDF. No signup, no watermark.',
   h1: 'Free PDF Converter',
@@ -293,44 +409,54 @@ export const PDF_CONVERTER_SEO = {
 };
 
 /** Title and description for non-tool public pages, shared by the pages and the prerender step. */
+/** Suffix for page titles, shared by <Seo> and the prerender step. */
+export const TITLE_SUFFIX = ` | ${BRAND}`;
+
+/** Title and description for non-tool public pages, shared by the pages and the prerender step. */
 export const STATIC_PAGE_SEO: Record<string, { title: string; description: string }> = {
   '/': {
-    title: 'Fyredocs — Free Online PDF Tools',
-    description: 'Merge, split, compress, and convert PDFs online for free. Fast, secure, no installation required.',
+    title: `${BRAND} – Free Online PDF Tools`,
+    description:
+      'Free online PDF tools: convert PDF to Word, JPG and Excel, merge, split, compress and sign PDFs. Fast, secure, no signup and no watermark.',
   },
   '/all-tools': {
-    title: 'All PDF Tools — Fyredocs',
+    title: `All PDF Tools${TITLE_SUFFIX}`,
     description:
       'Browse every Fyredocs tool — organize, optimize, convert, edit, and secure PDFs. Free, fast, and no sign-up required.',
   },
   '/pricing': {
-    title: 'Pricing — Fyredocs',
+    title: `Pricing${TITLE_SUFFIX}`,
     description:
       'Simple, transparent pricing for Fyredocs PDF tools. Use tools as a guest for free, or create an account for bigger limits and longer file retention.',
   },
   '/about': {
-    title: 'About — Fyredocs',
+    title: `About${TITLE_SUFFIX}`,
     description:
       'Fyredocs makes PDF tools accessible, fast, and private. Files are encrypted in transit, processed on our servers, and auto-deleted on a plan-based schedule.',
   },
   '/contact': {
-    title: 'Contact — Fyredocs',
+    title: `Contact${TITLE_SUFFIX}`,
     description: 'Questions about Fyredocs PDF tools? Send us a message or email support@fyredocs.com.',
   },
   '/blog': {
-    title: 'Blog — Fyredocs',
+    title: `Blog${TITLE_SUFFIX}`,
     description: 'Tips, tutorials, and insights about working with PDFs — compression, OCR, merging, security, and more.',
   },
+  '/docs': {
+    title: `Help Guides${TITLE_SUFFIX}`,
+    description:
+      'Step-by-step guides for every Fyredocs PDF tool: how to convert, merge, split, compress, protect and sign PDFs, plus limits and FAQs.',
+  },
   '/privacy': {
-    title: 'Privacy Policy — Fyredocs',
+    title: `Privacy Policy${TITLE_SUFFIX}`,
     description: 'How Fyredocs collects, uses and protects your data and the files you process with our PDF tools.',
   },
   '/terms': {
-    title: 'Terms of Service — Fyredocs',
+    title: `Terms of Service${TITLE_SUFFIX}`,
     description: 'The terms that apply when you use Fyredocs online PDF tools and services.',
   },
   '/cookies': {
-    title: 'Cookie Policy — Fyredocs',
+    title: `Cookie Policy${TITLE_SUFFIX}`,
     description: 'Which cookies Fyredocs uses, why, and how to change your cookie preferences.',
   },
   [PDF_CONVERTER_PATH]: { title: PDF_CONVERTER_SEO.title, description: PDF_CONVERTER_SEO.metaDescription },
@@ -365,13 +491,7 @@ export const buildToolJsonLd = (tool: ToolSeoBase, seo: ToolSeo, siteUrl: string
       acceptedAnswer: { '@type': 'Answer', text: f.a },
     })),
   };
-  const howTo: JsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'HowTo',
-    name: `How to use ${seo.h1}`,
-    step: seo.steps.map((text, i) => ({ '@type': 'HowToStep', position: i + 1, text })),
-  };
-  const out = [app, faq, howTo];
+  const out = [app, faq];
   if (siteUrl) {
     out.push({
       '@context': 'https://schema.org',
@@ -379,7 +499,7 @@ export const buildToolJsonLd = (tool: ToolSeoBase, seo: ToolSeo, siteUrl: string
       itemListElement: [
         { '@type': 'ListItem', position: 1, name: 'Home', item: `${siteUrl}/` },
         { '@type': 'ListItem', position: 2, name: 'All tools', item: `${siteUrl}/all-tools` },
-        { '@type': 'ListItem', position: 3, name: seo.h1, item: url },
+        { '@type': 'ListItem', position: 3, name: tool.name, item: url },
       ],
     });
   }
@@ -401,6 +521,57 @@ export const buildHubJsonLd = (links: readonly SeoLink[], siteUrl: string): Json
   },
 ];
 
+/** Organization + WebSite for the home page, so brand searches can show the name and logo. */
+export const buildHomeJsonLd = (siteUrl: string): JsonLd[] =>
+  siteUrl
+    ? [
+        {
+          '@context': 'https://schema.org',
+          '@type': 'Organization',
+          name: BRAND,
+          url: `${siteUrl}/`,
+          logo: `${siteUrl}/favicon-192.png`,
+          email: 'support@fyredocs.com',
+        },
+        { '@context': 'https://schema.org', '@type': 'WebSite', name: BRAND, url: `${siteUrl}/` },
+      ]
+    : [];
+
+/** The fields of a docs.ts entry SEO needs. */
+export interface DocSeoInput {
+  slug: string;
+  title: string;
+  description: string;
+  category?: string;
+  sections: { heading?: string; content: string; type: string; items?: string[] }[];
+}
+
+export const docPath = (slug: string): string => `/docs/${slug}`;
+/**
+ * Tool guides are titled "How to use X" so they target how-to searches and do
+ * not compete with the tool page itself for "X".
+ */
+export const docTitle = (doc: Pick<DocSeoInput, 'title' | 'category'>): string =>
+  doc.category === 'tool-guide' ? `How to Use ${doc.title} – Guide${TITLE_SUFFIX}` : `${doc.title} – Help${TITLE_SUFFIX}`;
+
+/** docs.ts descriptions are one short sentence; pad them to a useful snippet length. */
+export const docDescription = (doc: Pick<DocSeoInput, 'description'>): string => {
+  const base = doc.description.trim().replace(/\.?$/, '.');
+  return base.length >= 90 ? base : `${base} Step-by-step help for Fyredocs free online PDF tools.`;
+};
+
+export const buildDocJsonLd = (doc: DocSeoInput, siteUrl: string): JsonLd[] => [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'TechArticle',
+    headline: doc.title,
+    description: docDescription(doc),
+    author: { '@type': 'Organization', name: BRAND },
+    publisher: { '@type': 'Organization', name: BRAND },
+    ...(siteUrl ? { mainEntityOfPage: siteUrl + docPath(doc.slug) } : {}),
+  },
+];
+
 /** JSON for a <script type="application/ld+json">, with "<" escaped so content can never close the tag. */
 export const serializeJsonLd = (data: JsonLd | JsonLd[]): string => JSON.stringify(data).replace(/</g, '\\u003c');
 
@@ -415,14 +586,11 @@ export const serializeJsonLd = (data: JsonLd | JsonLd[]): string => JSON.stringi
  */
 export const extractToolBases = (toolsSource: string): ToolSeoBase[] => {
   const entry =
-    /\bid:\s*'([^']+)',\s*name:\s*'([^']+)',\s*description:\s*'([^']+)',[\s\S]*?\broute:\s*'([^']+)',\s*navGroup:\s*'([^']+)'/g;
-  return [...toolsSource.matchAll(entry)].map(([, id, name, description, route, navGroup]) => ({
-    id,
-    name,
-    description,
-    route,
-    navGroup,
-  }));
+    /\bid:\s*'([^']+)',\s*name:\s*'([^']+)',\s*description:\s*'([^']+)',([\s\S]*?)\broute:\s*'([^']+)',\s*navGroup:\s*'([^']+)'/g;
+  return [...toolsSource.matchAll(entry)].map(([, id, name, description, middle, route, navGroup]) => {
+    const maxFiles = /\bmaxFiles:\s*(\d+)/.exec(middle);
+    return { id, name, description, route, navGroup, ...(maxFiles ? { maxFiles: Number(maxFiles[1]) } : {}) };
+  });
 };
 
 const escapeHtml = (s: string): string =>
@@ -457,7 +625,11 @@ export const injectHead = (template: string, meta: HeadMeta): string => {
     extra.push(`<link rel="canonical" href="${escapeHtml(meta.canonical)}" ${PRERENDER_ATTR} />`);
     extra.push(`<meta property="og:url" content="${escapeHtml(meta.canonical)}" ${PRERENDER_ATTR} />`);
   }
-  if (meta.image) extra.push(`<meta property="og:image" content="${escapeHtml(meta.image)}" ${PRERENDER_ATTR} />`);
+  if (meta.image) {
+    extra.push(`<meta property="og:image" content="${escapeHtml(meta.image)}" ${PRERENDER_ATTR} />`);
+    extra.push(`<meta property="og:image:width" content="${OG_IMAGE_WIDTH}" ${PRERENDER_ATTR} />`);
+    extra.push(`<meta property="og:image:height" content="${OG_IMAGE_HEIGHT}" ${PRERENDER_ATTR} />`);
+  }
   if (meta.jsonLd?.length)
     extra.push(`<script type="application/ld+json" ${PRERENDER_ATTR}>${serializeJsonLd(meta.jsonLd)}</script>`);
   if (extra.length) html = html.replace('</head>', `    ${extra.join('\n    ')}\n  </head>`);
@@ -499,5 +671,55 @@ export const renderHubStaticHtml = (links: readonly SeoLink[]): string =>
     `<h1>${escapeHtml(PDF_CONVERTER_SEO.h1)}</h1>`,
     `<p>${escapeHtml(PDF_CONVERTER_SEO.intro)}</p>`,
     linkList(links),
+    '</main>',
+  ].join('');
+
+/** Static HTML for the home page: H1, intro and links to the main tools. */
+export const renderHomeStaticHtml = (links: readonly SeoLink[]): string =>
+  [
+    STATIC_STYLE,
+    '<main class="seo-static">',
+    `<h1>Free Online PDF Tools</h1>`,
+    `<p>${escapeHtml(STATIC_PAGE_SEO['/'].description)}</p>`,
+    '<h2>Popular tools</h2>',
+    linkList(links),
+    `<p><a href="${PDF_CONVERTER_PATH}">Free PDF converter</a> · <a href="/all-tools">All PDF tools</a></p>`,
+    '</main>',
+  ].join('');
+
+/** Static HTML for a help guide: headings, paragraphs and lists (code and diagrams skipped). */
+export const renderDocStaticHtml = (doc: DocSeoInput, tool?: SeoLink): string => {
+  const body = doc.sections
+    .filter((sec) => sec.type !== 'code' && sec.type !== 'mermaid')
+    .map((sec) => {
+      const parts: string[] = [];
+      if (sec.heading) parts.push(`<h2>${escapeHtml(sec.heading)}</h2>`);
+      if (sec.content) parts.push(`<p>${escapeHtml(sec.content)}</p>`);
+      if (sec.items?.length) {
+        const tag = sec.type === 'steps' ? 'ol' : 'ul';
+        parts.push(`<${tag}>${sec.items.map((i) => `<li>${escapeHtml(i)}</li>`).join('')}</${tag}>`);
+      }
+      return parts.join('');
+    });
+  return [
+    STATIC_STYLE,
+    '<main class="seo-static">',
+    `<h1>${escapeHtml(doc.title)}</h1>`,
+    `<p>${escapeHtml(doc.description)}</p>`,
+    ...body,
+    tool ? `<p><a href="${escapeHtml(tool.route)}">Open ${escapeHtml(tool.name)}</a></p>` : '',
+    '<p><a href="/docs">All help guides</a> · <a href="/all-tools">All PDF tools</a></p>',
+    '</main>',
+  ].join('');
+};
+
+/** Static HTML for the help-guide index. */
+export const renderDocsIndexStaticHtml = (docs: readonly DocSeoInput[]): string =>
+  [
+    STATIC_STYLE,
+    '<main class="seo-static">',
+    '<h1>Fyredocs Help Guides</h1>',
+    `<p>${escapeHtml(STATIC_PAGE_SEO['/docs'].description)}</p>`,
+    linkList(docs.map((d) => ({ name: d.title, route: docPath(d.slug) }))),
     '</main>',
   ].join('');

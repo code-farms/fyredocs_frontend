@@ -1,4 +1,9 @@
 import { Seo } from '@/components/common/Seo';
+import { SITE_URL } from '@/lib/seo';
+import { buildHomeJsonLd, STATIC_PAGE_SEO } from '@/lib/toolSeo';
+
+const HOME = STATIC_PAGE_SEO['/'];
+const HOME_JSON_LD = buildHomeJsonLd(SITE_URL);
 import { Link } from 'react-router-dom';
 import { Hero } from '@/components/home/Hero';
 import { ToolsShowcase } from '@/components/home/ToolsShowcase';
@@ -10,7 +15,7 @@ import { Heading, Text } from '@/components/ui/typography';
 const Index = () => {
   return (
     <>
-      <Seo title="Home" fullTitle="Fyredocs — Free Online PDF Tools" description="Merge, split, compress, and convert PDFs online for free. Fast, secure, no installation required." path="/" />
+      <Seo title="Home" fullTitle={HOME.title} description={HOME.description} path="/" jsonLd={HOME_JSON_LD} />
 
       <Hero />
 

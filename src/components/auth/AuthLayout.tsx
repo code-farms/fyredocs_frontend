@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { Check } from 'lucide-react';
 import { getAllTools } from '@/config/tools';
 
@@ -21,6 +22,10 @@ export function AuthLayout({ children }: AuthLayoutProps) {
 
   return (
     <div className="grid min-h-[calc(100vh-4rem)] lg:grid-cols-2">
+      {/* Auth pages stay out of search results; they would compete with the home page. */}
+      <Helmet>
+        <meta name="robots" content="noindex" />
+      </Helmet>
       {/* Brand panel */}
       {/* brand-950 stays dark in both themes, so text uses the light end of the brand ramp */}
       <aside className="relative hidden flex-col justify-center overflow-hidden bg-brand-950 p-10 text-brand-50 lg:flex">

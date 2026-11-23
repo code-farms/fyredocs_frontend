@@ -3,7 +3,9 @@ import { DocArticle } from '@/components/docs/DocArticle';
 import { docNavGroups, getDocBySlug } from '@/config/docs';
 import { TOOLS } from '@/config/tools';
 import { ArrowRight } from 'lucide-react';
-import { Helmet } from 'react-helmet-async';
+import { Seo } from '@/components/common/Seo';
+import { SITE_URL } from '@/lib/seo';
+import { buildDocJsonLd, docDescription, docPath, docTitle } from '@/lib/toolSeo';
 
 const DocsPage = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -18,10 +20,13 @@ const DocsPage = () => {
 
   return (
     <>
-      <Helmet>
-        <title>{doc.title} - Fyredocs Docs</title>
-        <meta name="description" content={doc.description} />
-      </Helmet>
+      <Seo
+        title={doc.title}
+        fullTitle={docTitle(doc)}
+        description={docDescription(doc)}
+        path={docPath(doc.slug)}
+        jsonLd={buildDocJsonLd(doc, SITE_URL)}
+      />
 
       <DocArticle
         slug={doc.slug}

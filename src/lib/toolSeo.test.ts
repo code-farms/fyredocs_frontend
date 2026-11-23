@@ -36,12 +36,32 @@ describe('getToolSeo', () => {
     const ids = new Set(tools.map((t) => t.id));
     for (const tool of tools) {
       const seo = getToolSeo(tool, tools);
-      expect(seo.title.length, tool.id).toBeLessThanOrEqual(75);
-      expect(seo.metaDescription.length, tool.id).toBeLessThanOrEqual(170);
-      expect(seo.faqs.length).toBeGreaterThanOrEqual(4);
+      expect(seo.title.length, tool.id).toBeLessThanOrEqual(60);
+      expect(seo.metaDescription.length, tool.id).toBeGreaterThanOrEqual(70);
+      expect(seo.metaDescription.length, tool.id).toBeLessThanOrEqual(160);
+      // Tool names keep their casing ("PDF", not "pdf") in generated copy.
+      expect(seo.metaDescription, tool.id).not.toMatch(/\bpdf\b/);
+      expect(seo.faqs.length).toBeGreaterThanOrEqual(3);
       expect(seo.steps.length).toBe(3);
       for (const id of seo.related) expect(ids.has(id), `${tool.id} → ${id}`).toBe(true);
     }
+  });
+});
+
+describe('pdf-to-jpg', () => {
+  it('is registered and has JPG-specific copy', () => {
+    const tool = tools.find((t) => t.id === 'pdf-to-jpg')!;
+    expect(tool).toMatchObject({ route: '/pdf-to-jpg', navGroup: 'convert-from-pdf' });
+    const seo = getToolSeo(tool, tools);
+    expect(seo.h1).toBe('PDF to JPG Converter');
+    expect(seo.faqs[0].q).toMatch(/several pages/);
+  });
+
+  it('puts each tool\'s own file limit in the FAQ', () => {
+    const merge = getToolSeo(tools.find((t) => t.id === 'merge')!, tools);
+    const split = getToolSeo(tools.find((t) => t.id === 'split')!, tools);
+    expect(merge.faqs.at(-1)!.a).toContain('up to 5 files');
+    expect(split.faqs.at(-1)!.a).toContain('one file at a time');
   });
 });
 
@@ -63,7 +83,7 @@ describe('prerender helpers', () => {
     expect(html).toContain('<link rel="canonical" href="https://fyredocs.com/compress" data-prerender />');
     const ld = /<script type="application\/ld\+json" data-prerender>(.*?)<\/script>/.exec(html)![1];
     const types = (JSON.parse(ld) as { '@type': string }[]).map((x) => x['@type']);
-    expect(types).toEqual(['SoftwareApplication', 'FAQPage', 'HowTo', 'BreadcrumbList']);
+    expect(types).toEqual(['SoftwareApplication', 'FAQPage', 'BreadcrumbList']);
   });
 
   it('puts the visible copy inside #root', () => {

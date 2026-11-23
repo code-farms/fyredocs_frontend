@@ -5,16 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!-- Inter is bundled (see src/main.tsx) — the edge CSP is same-origin, so a
          Google Fonts link would be blocked and silently fall back. -->
-    <title>Fyredocs — Free Online PDF Tools</title>
-    <meta name="description" content="Merge, split, compress, and convert PDFs online for free. Fast, secure, no installation required." />
+    <title>Fyredocs – Free Online PDF Tools</title>
+    <!-- data-prerender: main.tsx removes these before React mounts, so they
+         never duplicate the tags react-helmet-async renders per page. -->
+    <meta name="description" content="Free online PDF tools: convert PDF to Word, JPG and Excel, merge, split, compress and sign PDFs. Fast, secure, no signup and no watermark." data-prerender />
     <meta name="author" content="Fyredocs" />
     <!-- Square, multiple of 48px: Google Search only shows favicons that are. -->
     <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192.png" />
     <link rel="icon" href="/favicon.ico" sizes="48x48" />
     <link rel="apple-touch-icon" href="/favicon-192.png" />
 
-    <meta property="og:title" content="Fyredocs — Free Online PDF Tools" />
-    <meta property="og:description" content="Merge, split, compress, and convert PDFs online for free. Fast, secure, no installation required." />
+    <meta property="og:title" content="Fyredocs – Free Online PDF Tools" data-prerender />
+    <meta property="og:description" content="Free online PDF tools: convert PDF to Word, JPG and Excel, merge, split, compress and sign PDFs. Fast, secure, no signup and no watermark." data-prerender />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
 

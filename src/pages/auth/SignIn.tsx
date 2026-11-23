@@ -19,6 +19,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { AuthLayout } from '@/components/auth/AuthLayout';
+import { Helmet } from 'react-helmet-async';
 import { signupEnabled } from '@/lib/features';
 
 const signInSchema = z.object({
@@ -60,6 +61,9 @@ const SignIn = () => {
 
   return (
     <AuthLayout>
+      <Helmet>
+        <title>Sign in | Fyredocs</title>
+      </Helmet>
       <Card>
         <CardHeader>
           <CardTitle>Sign in</CardTitle>

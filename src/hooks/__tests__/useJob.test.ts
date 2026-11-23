@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { normalizeOptions } from '../useJob';
+import { buildJobPath, getToolIdByApiName } from '@/lib/toolApi';
 
 describe('normalizeOptions', () => {
   describe('split', () => {
@@ -204,6 +205,17 @@ describe('normalizeOptions', () => {
     it.each(noOptionTools)('%s returns undefined', (toolId) => {
       const result = normalizeOptions(toolId, {});
       expect(result).toBeUndefined();
+    });
+  });
+
+  describe('pdf-to-jpg', () => {
+    it('asks the shared pdf-to-image backend tool for JPG output', () => {
+      expect(normalizeOptions('pdf-to-jpg', { format: 'jpg' })).toEqual({ format: 'jpg' });
+    });
+
+    it('routes to the pdf-to-image endpoint, while history maps back to pdf-to-image', () => {
+      expect(buildJobPath('pdf-to-jpg')).toBe('/api/convert-from-pdf/pdf-to-image');
+      expect(getToolIdByApiName('pdf-to-image')).toBe('pdf-to-image');
     });
   });
 

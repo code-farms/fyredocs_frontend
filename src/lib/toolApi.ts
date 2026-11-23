@@ -30,6 +30,8 @@ const TOOL_API_CONFIG: Record<ToolId, ToolApiConfig> = {
   'pdf-to-word': { basePath: '/api/convert-from-pdf', tool: 'pdf-to-word' },
   'pdf-to-excel': { basePath: '/api/convert-from-pdf', tool: 'pdf-to-excel' },
   'pdf-to-image': { basePath: '/api/convert-from-pdf', tool: 'pdf-to-image' },
+  // Same backend tool as pdf-to-image; normalizeOptions sends { format: 'jpg' }.
+  'pdf-to-jpg': { basePath: '/api/convert-from-pdf', tool: 'pdf-to-image' },
   'pdf-to-ppt': { basePath: '/api/convert-from-pdf', tool: 'pdf-to-ppt' },
   'pdf-to-html': { basePath: '/api/convert-from-pdf', tool: 'pdf-to-html' },
   'pdf-to-text': { basePath: '/api/convert-from-pdf', tool: 'pdf-to-text' },
@@ -60,10 +62,15 @@ const TOOL_API_CONFIG: Record<ToolId, ToolApiConfig> = {
 
 export const getToolApiConfig = (toolId: ToolId) => TOOL_API_CONFIG[toolId];
 
-/** Reverse lookup: backend tool name ('merge-pdf') → frontend ToolId ('merge'). */
-const API_NAME_TO_TOOL_ID: Record<string, ToolId> = Object.fromEntries(
-  (Object.entries(TOOL_API_CONFIG) as [ToolId, ToolApiConfig][]).map(([id, cfg]) => [cfg.tool, id]),
-) as Record<string, ToolId>;
+/**
+ * Reverse lookup: backend tool name ('merge-pdf') → frontend ToolId ('merge').
+ * When two ToolIds share a backend tool (pdf-to-image / pdf-to-jpg), the
+ * first one listed wins, so job history keeps showing the original tool.
+ */
+const API_NAME_TO_TOOL_ID: Record<string, ToolId> = {};
+for (const [id, cfg] of Object.entries(TOOL_API_CONFIG) as [ToolId, ToolApiConfig][]) {
+  API_NAME_TO_TOOL_ID[cfg.tool] ??= id;
+}
 
 export const getToolIdByApiName = (apiTool: string): ToolId | undefined =>
   API_NAME_TO_TOOL_ID[apiTool];

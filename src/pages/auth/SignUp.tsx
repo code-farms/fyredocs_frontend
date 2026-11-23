@@ -19,6 +19,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { AuthLayout } from '@/components/auth/AuthLayout';
+import { Helmet } from 'react-helmet-async';
 import { CountryCombobox, guessCountryFromLocale } from '@/components/auth/CountryCombobox';
 import { PasswordStrengthHints } from '@/components/auth/PasswordStrengthHints';
 
@@ -78,6 +79,9 @@ const SignUp = () => {
 
   return (
     <AuthLayout>
+      <Helmet>
+        <title>Sign up | Fyredocs</title>
+      </Helmet>
       <Card>
         <CardHeader>
           <CardTitle>Create account</CardTitle>

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Github, Twitter, Mail, Shield } from 'lucide-react';
+import { Mail, Shield } from 'lucide-react';
 import { openCookiePreferences } from '@/lib/consent';
 import { getPopularTools } from '@/config/tools';
 import { getToolsByNavGroup, toolNavName } from '@/config/navigation';
@@ -47,11 +47,9 @@ const legalLinks = [
   { label: 'Cookie Policy', href: '/cookies' },
 ];
 
-const socialLinks = [
-  { icon: Twitter, label: 'Twitter', href: '#' },
-  { icon: Github, label: 'GitHub', href: '#' },
-  { icon: Mail, label: 'Email', href: 'mailto:support@fyredocs.com' },
-];
+// Only real destinations: placeholder "#" social links are dead links to crawlers.
+// Add Twitter/GitHub here (and as Organization sameAs) once the profiles exist.
+const socialLinks = [{ icon: Mail, label: 'Email', href: 'mailto:support@fyredocs.com' }];
 
 const footerLinkClass = 'text-sm text-muted-foreground hover:text-foreground transition-colors';
 

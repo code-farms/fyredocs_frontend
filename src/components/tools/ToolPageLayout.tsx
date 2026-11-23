@@ -1,7 +1,6 @@
 import { ReactNode, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Seo } from '@/components/common/Seo';
-import { ChevronLeft } from 'lucide-react';
 import { ToolCategory, ToolDefinition } from '@/types';
 import { ToolIcon } from '@/components/icons/ToolIcon';
 import { PageHeader } from '@/components/common/PageHeader';
@@ -10,6 +9,14 @@ import { getAllTools } from '@/config/tools';
 import { SITE_URL } from '@/lib/seo';
 import { buildToolJsonLd, getToolSeo } from '@/lib/toolSeo';
 import { ToolSeoContent } from './ToolSeoContent';
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb';
 
 interface ToolPageLayoutProps {
   tool: ToolDefinition;
@@ -60,13 +67,26 @@ export const ToolPageLayout = ({ tool, children, className }: ToolPageLayoutProp
         <div className="container max-w-4xl">
           <PageHeader
             breadcrumb={
-              <Link
-                to="/all-tools"
-                className="inline-flex items-center gap-1 text-body-sm text-muted-foreground transition-colors hover:text-foreground"
-              >
-                <ChevronLeft className="h-4 w-4" aria-hidden />
-                All tools
-              </Link>
+              // Mirrors the BreadcrumbList JSON-LD (Home › All tools › tool).
+              <Breadcrumb>
+                <BreadcrumbList>
+                  <BreadcrumbItem>
+                    <BreadcrumbLink asChild>
+                      <Link to="/">Home</Link>
+                    </BreadcrumbLink>
+                  </BreadcrumbItem>
+                  <BreadcrumbSeparator />
+                  <BreadcrumbItem>
+                    <BreadcrumbLink asChild>
+                      <Link to="/all-tools">All tools</Link>
+                    </BreadcrumbLink>
+                  </BreadcrumbItem>
+                  <BreadcrumbSeparator />
+                  <BreadcrumbItem>
+                    <BreadcrumbPage>{tool.name}</BreadcrumbPage>
+                  </BreadcrumbItem>
+                </BreadcrumbList>
+              </Breadcrumb>
             }
             title={
               <span className="flex items-center gap-4">

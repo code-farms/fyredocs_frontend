@@ -183,6 +183,9 @@ export const normalizeOptions = (toolId: ToolId, options: ToolOptions) => {
         opacity: opts.opacity,
       };
     }
+    // Shares the backend pdf-to-image tool, which defaults to PNG.
+    case 'pdf-to-jpg':
+      return { format: 'jpg' };
     // Tools with no options
     case 'merge':
     case 'repair-pdf':
