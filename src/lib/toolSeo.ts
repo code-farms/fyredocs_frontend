@@ -438,10 +438,6 @@ export const STATIC_PAGE_SEO: Record<string, { title: string; description: strin
     title: `Contact${TITLE_SUFFIX}`,
     description: 'Questions about Fyredocs PDF tools? Send us a message or email support@fyredocs.com.',
   },
-  '/blog': {
-    title: `Blog${TITLE_SUFFIX}`,
-    description: 'Tips, tutorials, and insights about working with PDFs — compression, OCR, merging, security, and more.',
-  },
   '/docs': {
     title: `Help Guides${TITLE_SUFFIX}`,
     description:
@@ -593,7 +589,7 @@ export const extractToolBases = (toolsSource: string): ToolSeoBase[] => {
   });
 };
 
-const escapeHtml = (s: string): string =>
+export const escapeHtml = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 /**
@@ -609,6 +605,12 @@ export interface HeadMeta {
   canonical?: string;
   image?: string;
   jsonLd?: JsonLd[];
+  /** <html lang>, e.g. "hi" for Hindi pages. */
+  lang?: string;
+  /** hreflang alternates: { en: url, hi: url, 'x-default': url }. */
+  alternates?: Record<string, string>;
+  /** RSS feed advertised with <link rel="alternate" type="application/rss+xml">. */
+  rss?: { title: string; href: string };
 }
 
 /** Replaces the template's title/description/og tags and appends canonical, og:url, og:image and JSON-LD. */
@@ -620,6 +622,7 @@ export const injectHead = (template: string, meta: HeadMeta): string => {
     .replace(/(<meta name="description" content=")[^"]*(")/, `$1${d}$2`)
     .replace(/(<meta property="og:title" content=")[^"]*(")/, `$1${t}$2`)
     .replace(/(<meta property="og:description" content=")[^"]*(")/, `$1${d}$2`);
+  if (meta.lang) html = html.replace(/<html lang="[^"]*">/, `<html lang="${escapeHtml(meta.lang)}">`);
   const extra: string[] = [];
   if (meta.canonical) {
     extra.push(`<link rel="canonical" href="${escapeHtml(meta.canonical)}" ${PRERENDER_ATTR} />`);
@@ -629,6 +632,14 @@ export const injectHead = (template: string, meta: HeadMeta): string => {
     extra.push(`<meta property="og:image" content="${escapeHtml(meta.image)}" ${PRERENDER_ATTR} />`);
     extra.push(`<meta property="og:image:width" content="${OG_IMAGE_WIDTH}" ${PRERENDER_ATTR} />`);
     extra.push(`<meta property="og:image:height" content="${OG_IMAGE_HEIGHT}" ${PRERENDER_ATTR} />`);
+  }
+  for (const [hreflang, href] of Object.entries(meta.alternates ?? {})) {
+    extra.push(`<link rel="alternate" hreflang="${escapeHtml(hreflang)}" href="${escapeHtml(href)}" ${PRERENDER_ATTR} />`);
+  }
+  if (meta.rss) {
+    extra.push(
+      `<link rel="alternate" type="application/rss+xml" title="${escapeHtml(meta.rss.title)}" href="${escapeHtml(meta.rss.href)}" ${PRERENDER_ATTR} />`,
+    );
   }
   if (meta.jsonLd?.length)
     extra.push(`<script type="application/ld+json" ${PRERENDER_ATTR}>${serializeJsonLd(meta.jsonLd)}</script>`);
@@ -641,16 +652,16 @@ export const injectRoot = (template: string, body: string): string =>
   template.replace('<div id="root"></div>', `<div id="root">${body}</div>`);
 
 /** Minimal inline styles so the static content is readable for the moment before the app mounts. */
-const STATIC_STYLE =
+export const STATIC_STYLE =
   // body{margin:0} matches Tailwind's preflight: if the first paint beats the
   // stylesheet, the browser's default 8px margin otherwise snaps away (CLS).
   '<style>body{margin:0}.seo-static{max-width:56rem;margin:0 auto;padding:2rem 1rem;font-family:Inter,system-ui,sans-serif;line-height:1.6}.seo-static a{color:inherit}</style>';
 
-const linkList = (links: readonly SeoLink[]): string =>
+export const linkList = (links: readonly SeoLink[]): string =>
   `<ul>${links.map((l) => `<li><a href="${escapeHtml(l.route)}">${escapeHtml(l.name)}</a></li>`).join('')}</ul>`;
 
 /** Static HTML for a tool page: H1, intro, how-to steps, FAQ and related links. */
-export const renderToolStaticHtml = (seo: ToolSeo, related: readonly SeoLink[]): string =>
+export const renderToolStaticHtml = (seo: ToolSeo, related: readonly SeoLink[], guides: readonly SeoLink[] = []): string =>
   [
     STATIC_STYLE,
     '<main class="seo-static">',
@@ -661,6 +672,7 @@ export const renderToolStaticHtml = (seo: ToolSeo, related: readonly SeoLink[]):
     '<h2>Frequently asked questions</h2>',
     ...seo.faqs.map((f) => `<h3>${escapeHtml(f.q)}</h3><p>${escapeHtml(f.a)}</p>`),
     related.length ? `<h2>Related tools</h2>${linkList(related)}` : '',
+    guides.length ? `<h2>Guides</h2>${linkList(guides)}` : '',
     '<p><a href="/all-tools">See all PDF tools</a></p>',
     '</main>',
   ].join('');

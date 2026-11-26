@@ -11,7 +11,6 @@ export const STATIC_PUBLIC_PATHS = [
   '/pricing',
   '/about',
   '/contact',
-  '/blog',
   '/privacy',
   '/terms',
   '/cookies',
@@ -42,11 +41,24 @@ export const extractToolRoutes = (toolsSource: string): string[] => {
 const escapeXml = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 
-/** `lastmod` (YYYY-MM-DD, the build date) is applied to every URL when given. */
-export const buildSitemapXml = (siteUrl: string, paths: readonly string[], lastmod?: string): string => {
-  const unique = [...new Set(paths)];
-  const mod = lastmod ? `<lastmod>${escapeXml(lastmod)}</lastmod>` : '';
-  const urls = unique.map((p) => `  <url><loc>${escapeXml(siteUrl + (p === '/' ? '/' : p))}</loc>${mod}</url>`);
+export type SitemapEntry = string | { path: string; lastmod?: string };
+
+/**
+ * `lastmod` (YYYY-MM-DD) is the default for every URL; an entry's own lastmod
+ * (e.g. a blog post's updatedAt) wins. Duplicate paths keep the first entry.
+ */
+export const buildSitemapXml = (siteUrl: string, entries: readonly SitemapEntry[], lastmod?: string): string => {
+  const seen = new Set<string>();
+  const urls: string[] = [];
+  for (const e of entries) {
+    const { path, lastmod: own } = typeof e === 'string' ? { path: e, lastmod: undefined } : e;
+    if (seen.has(path)) continue;
+    seen.add(path);
+    const mod = own ?? lastmod;
+    urls.push(
+      `  <url><loc>${escapeXml(siteUrl + (path === '/' ? '/' : path))}</loc>${mod ? `<lastmod>${escapeXml(mod)}</lastmod>` : ''}</url>`,
+    );
+  }
   return ['<?xml version="1.0" encoding="UTF-8"?>', '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">', ...urls, '</urlset>', ''].join('\n');
 };
 

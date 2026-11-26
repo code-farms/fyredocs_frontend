@@ -110,7 +110,7 @@ export const ToolPageLayout = ({ tool, children, className }: ToolPageLayoutProp
       {/* Tool content */}
       <div className={cn('container max-w-4xl py-8', className)}>{children}</div>
 
-      <ToolSeoContent seo={seo} />
+      <ToolSeoContent seo={seo} toolId={tool.id} />
     </>
   );
 };

@@ -1,136 +1,112 @@
-import { Seo } from '@/components/common/Seo';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Calendar, Clock, ArrowRight } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ArrowRight, Clock, Languages } from 'lucide-react';
+import { Seo } from '@/components/common/Seo';
 import { Badge } from '@/components/ui/badge';
 import { Heading, Text } from '@/components/ui/typography';
+import { BLOG_POSTS } from '@/content/blog';
+import type { BlogCategory, BlogLang } from '@/content/blog/types';
+import { BLOG_CATEGORY_LABELS, BLOG_UI, formatBlogDate } from '@/content/blog/ui';
+import {
+  BLOG_RSS_PATH,
+  blogAlternates,
+  blogIndexPath,
+  blogIndexTitle,
+  blogPostPath,
+  buildBlogIndexJsonLd,
+  otherLang,
+} from '@/lib/blogSeo';
+import { SITE_URL } from '@/lib/seo';
+import { cn } from '@/lib/utils';
 
-interface BlogPost {
-  id: number;
-  title: string;
-  description: string;
-  category: string;
-  date: string;
-  readTime: string;
-  /** Matching guide in src/config/docs.ts — posts without one render as plain cards. */
-  docSlug?: string;
-}
+const BlogPage = ({ lang }: { lang: BlogLang }) => {
+  const ui = BLOG_UI[lang];
+  const [category, setCategory] = useState<BlogCategory | null>(null);
+  const categories = useMemo(() => [...new Set(BLOG_POSTS.map((p) => p.category))], []);
+  const posts = category ? BLOG_POSTS.filter((p) => p.category === category) : BLOG_POSTS;
+  const jsonLd = useMemo(() => buildBlogIndexJsonLd(BLOG_POSTS, lang, SITE_URL), [lang]);
 
-const blogPosts: BlogPost[] = [
-  {
-    id: 1,
-    title: 'How to Reduce PDF File Size Without Losing Quality',
-    description:
-      'Learn the best techniques for compressing PDFs while maintaining document clarity and readability.',
-    category: 'Tips & Tricks',
-    date: '2025-01-15',
-    readTime: '5 min read',
-    docSlug: 'compress-pdf',
-  },
-  {
-    id: 2,
-    title: 'The Complete Guide to PDF Accessibility',
-    description: 'Making your PDFs accessible to everyone, including users with disabilities.',
-    category: 'Guides',
-    date: '2025-01-10',
-    readTime: '8 min read',
-  },
-  {
-    id: 3,
-    title: 'OCR Technology: How It Works and When to Use It',
-    description:
-      'Understanding optical character recognition and its applications for scanned documents.',
-    category: 'Technology',
-    date: '2025-01-05',
-    readTime: '6 min read',
-    docSlug: 'ocr-pdf',
-  },
-  {
-    id: 4,
-    title: 'Best Practices for Merging Multiple PDFs',
-    description:
-      'Tips for organizing and combining PDF documents efficiently for professional results.',
-    category: 'Tips & Tricks',
-    date: '2024-12-28',
-    readTime: '4 min read',
-    docSlug: 'merge-pdf',
-  },
-  {
-    id: 5,
-    title: 'PDF Security: Protecting Your Sensitive Documents',
-    description: 'Learn how to password protect and encrypt your PDF files for maximum security.',
-    category: 'Security',
-    date: '2024-12-20',
-    readTime: '7 min read',
-    docSlug: 'protect-pdf',
-  },
-];
-
-const PostMeta = ({ post, withArrow }: { post: BlogPost; withArrow: boolean }) => (
-  <div className="flex items-center justify-between text-body-sm text-muted-foreground">
-    <div className="flex items-center gap-4">
-      <span className="flex items-center gap-1">
-        <Calendar className="h-4 w-4" aria-hidden />
-        {new Date(post.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-      </span>
-      <span className="flex items-center gap-1">
-        <Clock className="h-4 w-4" aria-hidden />
-        {post.readTime}
-      </span>
-    </div>
-    {withArrow && (
-      <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" aria-hidden />
-    )}
-  </div>
-);
-
-const PostCardBody = ({ post, linked }: { post: BlogPost; linked: boolean }) => (
-  <>
-    <CardHeader>
-      <Badge variant="secondary" className="mb-2 w-fit">
-        {post.category}
-      </Badge>
-      <CardTitle className={linked ? 'transition-colors group-hover:text-primary' : undefined}>
-        {post.title}
-      </CardTitle>
-      <CardDescription>{post.description}</CardDescription>
-    </CardHeader>
-    <CardContent>
-      <PostMeta post={post} withArrow={linked} />
-    </CardContent>
-  </>
-);
-
-const BlogPage = () => {
   return (
     <>
-      <Seo title="Blog" description="Tips, tutorials, and insights about working with PDFs — compression, OCR, merging, security, and more." path="/blog" />
+      <Seo
+        title={ui.indexMetaTitle}
+        fullTitle={blogIndexTitle(lang)}
+        description={ui.indexDescription}
+        path={blogIndexPath(lang)}
+        jsonLd={jsonLd}
+        lang={lang}
+        alternates={blogAlternates(blogIndexPath, SITE_URL)}
+        rss={{ title: BLOG_UI.en.indexTitle, href: BLOG_RSS_PATH }}
+      />
 
-      <div className="container py-12 md:py-16">
-        <div className="mx-auto mb-12 max-w-3xl text-center md:mb-16">
+      <div className="container py-12 md:py-16" lang={lang}>
+        <div className="mx-auto mb-10 max-w-3xl text-center">
           <Heading level="display" responsive>
-            Fyredocs <span className="gradient-text">Blog</span>
+            {ui.indexTitle}
           </Heading>
           <Text variant="body-lg" tone="muted" className="mt-4">
-            Tips, tutorials, and insights about working with PDFs
+            {ui.indexIntro}
           </Text>
+          <Link
+            to={blogIndexPath(otherLang(lang))}
+            hrefLang={otherLang(lang)}
+            className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+          >
+            <Languages className="h-4 w-4" aria-hidden />
+            {ui.readInOther}
+          </Link>
         </div>
 
-        <div className="mx-auto grid max-w-6xl gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {blogPosts.map((post) =>
-            post.docSlug ? (
-              <Link key={post.id} to={`/docs/${post.docSlug}`} className="group block">
-                <Card className="h-full transition-shadow hover:shadow-lg">
-                  <PostCardBody post={post} linked />
-                </Card>
-              </Link>
-            ) : (
-              <Card key={post.id} className="h-full">
-                <PostCardBody post={post} linked={false} />
-              </Card>
-            ),
-          )}
-        </div>
+        {categories.length > 1 && (
+          <div className="mb-8 flex flex-wrap justify-center gap-2" role="group" aria-label={ui.blog}>
+            {[null, ...categories].map((c) => (
+              <button
+                key={c ?? 'all'}
+                type="button"
+                aria-pressed={category === c}
+                onClick={() => setCategory(c)}
+                className={cn(
+                  'rounded-full px-4 py-1.5 text-body-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                  category === c ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80',
+                )}
+              >
+                {c ? BLOG_CATEGORY_LABELS[c][lang] : ui.all}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <ul className="mx-auto grid max-w-6xl gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {posts.map((post) => {
+            const l = post.i18n[lang];
+            return (
+              <li key={post.slug}>
+                <Link
+                  to={blogPostPath(post.slug, lang)}
+                  className="group flex h-full flex-col rounded-xl border bg-card p-6 transition-shadow hover:shadow-lg"
+                >
+                  <Badge variant="secondary" className="mb-3 w-fit">
+                    {BLOG_CATEGORY_LABELS[post.category][lang]}
+                  </Badge>
+                  <h2 className="mb-2 text-lg font-semibold leading-snug transition-colors group-hover:text-primary">
+                    {l.title}
+                  </h2>
+                  <p className="mb-5 flex-1 text-sm leading-relaxed text-muted-foreground">{l.description}</p>
+                  <span className="flex items-center justify-between text-body-sm text-muted-foreground">
+                    <span className="flex items-center gap-3">
+                      <span>{formatBlogDate(post.updatedAt, lang)}</span>
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-4 w-4" aria-hidden />
+                        {post.readMinutes} {ui.minRead}
+                      </span>
+                    </span>
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" aria-hidden />
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
       </div>
     </>
   );

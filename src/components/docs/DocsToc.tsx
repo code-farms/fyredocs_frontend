@@ -1,19 +1,21 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { DocSection } from '@/config/docs';
 import { cn } from '@/lib/utils';
 import { Text } from '@/components/ui/typography';
 import { slugifyHeading } from '@/lib/docsNavigation';
 
 interface DocsTocProps {
-  sections: DocSection[];
+  /** Anything with optional headings (docs sections, blog sections). */
+  sections: ReadonlyArray<{ heading?: string }>;
   className?: string;
+  /** Rail title; defaults to "On this page". */
+  label?: string;
 }
 
 /**
  * "On this page" right rail. Scroll-spy is driven by one IntersectionObserver
  * across all heading anchors; the topmost visible heading wins.
  */
-export const DocsToc = ({ sections, className }: DocsTocProps) => {
+export const DocsToc = ({ sections, className, label = 'On this page' }: DocsTocProps) => {
   const headings = useMemo(
     () =>
       sections
@@ -62,10 +64,10 @@ export const DocsToc = ({ sections, className }: DocsTocProps) => {
   if (headings.length < 2) return null;
 
   return (
-    <nav aria-label="On this page" className={cn('hidden xl:block', className)}>
+    <nav aria-label={label} className={cn('hidden xl:block', className)}>
       <div className="sticky top-24 max-h-[calc(100vh-8rem)] overflow-y-auto pb-8">
         <Text variant="overline" tone="muted" as="div" className="mb-3">
-          On this page
+          {label}
         </Text>
         <ul className="border-l border-border">
           {headings.map((heading) => (

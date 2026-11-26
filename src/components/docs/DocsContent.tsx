@@ -118,26 +118,31 @@ const SectionHeading = ({ heading }: { heading: string }) => {
   );
 };
 
+/** One docs section (heading + body). Exported so blog posts can reuse the standard blocks. */
+export const DocSectionBlock = ({ section }: { section: DocSection }) => (
+  <div>
+    {section.heading && <SectionHeading heading={section.heading} />}
+    {section.type === 'paragraph' && <SectionParagraph content={section.content} />}
+    {section.type === 'steps' && section.items && <SectionSteps items={section.items} />}
+    {section.type === 'list' && section.items && <SectionList items={section.items} />}
+    {section.type === 'table' && section.tableData && <SectionTable tableData={section.tableData} />}
+    {section.type === 'tip' && <SectionTip content={section.content} />}
+    {section.type === 'warning' && <SectionWarning content={section.content} />}
+    {section.type === 'code' && <CodeBlock content={section.content} language={section.language} />}
+    {section.type === 'formats' && section.content && <SectionParagraph content={section.content} />}
+    {section.type === 'mermaid' && (
+      <Suspense fallback={<div className="h-48 rounded-lg border bg-muted/50 animate-pulse" />}>
+        <SectionMermaid content={section.content} />
+      </Suspense>
+    )}
+  </div>
+);
+
 export const DocsContent = ({ sections }: DocsContentProps) => {
   return (
     <div className="space-y-8">
       {sections.map((section, index) => (
-        <div key={index}>
-          {section.heading && <SectionHeading heading={section.heading} />}
-          {section.type === 'paragraph' && <SectionParagraph content={section.content} />}
-          {section.type === 'steps' && section.items && <SectionSteps items={section.items} />}
-          {section.type === 'list' && section.items && <SectionList items={section.items} />}
-          {section.type === 'table' && section.tableData && <SectionTable tableData={section.tableData} />}
-          {section.type === 'tip' && <SectionTip content={section.content} />}
-          {section.type === 'warning' && <SectionWarning content={section.content} />}
-          {section.type === 'code' && <CodeBlock content={section.content} language={section.language} />}
-          {section.type === 'formats' && section.content && <SectionParagraph content={section.content} />}
-          {section.type === 'mermaid' && (
-            <Suspense fallback={<div className="h-48 rounded-lg border bg-muted/50 animate-pulse" />}>
-              <SectionMermaid content={section.content} />
-            </Suspense>
-          )}
-        </div>
+        <DocSectionBlock key={index} section={section} />
       ))}
     </div>
   );

@@ -1,6 +1,6 @@
 // Type-only: vite.config.ts imports this file at build time to prerender
 // /docs pages, and cannot resolve the '@/' alias for runtime imports.
-import type { ToolId } from '@/types';
+import type { ToolId } from '../types';
 
 // ============================================================================
 // TYPES

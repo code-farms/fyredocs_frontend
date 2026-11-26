@@ -4,13 +4,16 @@ import { Heading, Text } from '@/components/ui/typography';
 import { getToolById } from '@/config/tools';
 import type { ToolSeo } from '@/lib/toolSeo';
 import type { ToolId } from '@/types';
+import { BLOG_POSTS } from '@/content/blog';
+import { blogPostPath, postsForTool } from '@/lib/blogSeo';
 
 /**
  * Search copy below the tool UI: intro, how-to steps, FAQ and related tools.
  * FAQ uses native <details> so the answers stay in the DOM when collapsed
  * (they back the FAQPage JSON-LD, which Google requires to be visible text).
  */
-export const ToolSeoContent = ({ seo }: { seo: ToolSeo }) => {
+export const ToolSeoContent = ({ seo, toolId }: { seo: ToolSeo; toolId: string }) => {
+  const guides = postsForTool(BLOG_POSTS, toolId);
   const related = seo.related.flatMap((id) => {
     const tool = getToolById(id as ToolId);
     return tool ? [tool] : [];
@@ -67,6 +70,23 @@ export const ToolSeoContent = ({ seo }: { seo: ToolSeo }) => {
                 >
                   <span className="font-medium">{tool.name}</span>
                   <span className="mt-1 block text-sm text-muted-foreground">{tool.description}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )}
+
+      {guides.length > 0 && (
+        <nav aria-label="Guides">
+          <Heading level="h2" className="mb-4">
+            Guides
+          </Heading>
+          <ul className="space-y-2">
+            {guides.map((post) => (
+              <li key={post.slug}>
+                <Link to={blogPostPath(post.slug, 'en')} className="font-medium text-primary hover:underline">
+                  {post.i18n.en.title}
                 </Link>
               </li>
             ))}

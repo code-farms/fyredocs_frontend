@@ -36,6 +36,7 @@ const companyLinks = [
   { label: 'All Tools', href: '/all-tools' },
   { label: 'About', href: '/about' },
   { label: 'Blog', href: '/blog' },
+  { label: 'हिंदी ब्लॉग', href: '/hi/blog' },
   { label: 'Pricing', href: '/pricing' },
   { label: 'Contact', href: '/contact' },
   { label: 'Docs', href: '/docs' },

@@ -33,6 +33,24 @@ import {
   renderToolStaticHtml,
 } from "./src/lib/toolSeo";
 import { docs } from "./src/config/docs";
+import { BLOG_POSTS } from "./src/content/blog";
+import { BLOG_LANGS } from "./src/content/blog/types";
+import { BLOG_UI } from "./src/content/blog/ui";
+import {
+  BLOG_RSS_PATH,
+  blogAlternates,
+  blogIndexPath,
+  blogIndexTitle,
+  blogPostPath,
+  blogPostTitle,
+  buildBlogIndexJsonLd,
+  buildBlogPostJsonLd,
+  buildBlogRss,
+  postsForTool,
+  relatedPosts,
+  renderBlogIndexStaticHtml,
+  renderBlogPostStaticHtml,
+} from "./src/lib/blogSeo";
 
 /** The SPA shell Caddy serves for routes with no prerendered file. */
 const SHELL_FILE = "_shell.html";
@@ -76,9 +94,13 @@ function prerenderPublicPages(outDir: string, siteUrl: string, toolsSource: stri
       const t = byId.get(id);
       return t ? [{ name: t.name, route: t.route }] : [];
     });
+    const guides = postsForTool(BLOG_POSTS, tool.id).map((p) => ({
+      name: p.i18n.en.title,
+      route: blogPostPath(p.slug, "en"),
+    }));
     writeRoute(
       tool.route,
-      page(tool.route, seo.title, seo.metaDescription, buildToolJsonLd(tool, seo, siteUrl), renderToolStaticHtml(seo, related)),
+      page(tool.route, seo.title, seo.metaDescription, buildToolJsonLd(tool, seo, siteUrl), renderToolStaticHtml(seo, related, guides)),
     );
   }
 
@@ -93,6 +115,39 @@ function prerenderPublicPages(outDir: string, siteUrl: string, toolsSource: stri
       writeRoute(route, page(route, meta.title, meta.description, undefined, renderDocsIndexStaticHtml(docs)));
     } else {
       writeRoute(route, page(route, meta.title, meta.description));
+    }
+  }
+
+  // Blog: index and every post in each language, with hreflang pairs, <html lang>
+  // and the RSS link. /hi/... files land in dist/hi/.
+  const toolLinks = new Map(tools.map((t) => [t.id, { name: t.name, route: t.route }]));
+  const rss = { title: BLOG_UI.en.indexTitle, href: BLOG_RSS_PATH };
+  for (const lang of BLOG_LANGS) {
+    const indexRoute = blogIndexPath(lang);
+    const indexHead = injectHead(template, {
+      title: blogIndexTitle(lang),
+      description: BLOG_UI[lang].indexDescription,
+      canonical: canonicalFor(indexRoute),
+      image,
+      lang,
+      alternates: blogAlternates(blogIndexPath, siteUrl),
+      rss,
+      jsonLd: buildBlogIndexJsonLd(BLOG_POSTS, lang, siteUrl),
+    });
+    writeRoute(indexRoute, injectRoot(indexHead, renderBlogIndexStaticHtml(BLOG_POSTS, lang)));
+    for (const post of BLOG_POSTS) {
+      const route = blogPostPath(post.slug, lang);
+      const head = injectHead(template, {
+        title: blogPostTitle(post, lang),
+        description: post.i18n[lang].description,
+        canonical: canonicalFor(route),
+        image,
+        lang,
+        alternates: blogAlternates((l) => blogPostPath(post.slug, l), siteUrl),
+        rss,
+        jsonLd: buildBlogPostJsonLd(post, lang, siteUrl),
+      });
+      writeRoute(route, injectRoot(head, renderBlogPostStaticHtml(post, lang, toolLinks, relatedPosts(BLOG_POSTS, post))));
     }
   }
 
@@ -129,9 +184,20 @@ function seoPlugin(siteUrl: string): Plugin {
       this.emitFile({ type: "asset", fileName: "robots.txt", source: buildRobotsTxt(siteUrl) });
       if (!siteUrl) return;
       const toolsSource = readFileSync(path.resolve(import.meta.dirname, "src/config/tools.ts"), "utf8");
-      const paths = [...STATIC_PUBLIC_PATHS, ...extractToolRoutes(toolsSource), "/docs", ...docs.map((d) => docPath(d.slug))];
+      const blogLastmod = BLOG_POSTS.reduce((max, p) => (p.updatedAt > max ? p.updatedAt : max), "");
+      const paths = [
+        ...STATIC_PUBLIC_PATHS,
+        ...extractToolRoutes(toolsSource),
+        "/docs",
+        ...docs.map((d) => docPath(d.slug)),
+        ...BLOG_LANGS.flatMap((lang) => [
+          { path: blogIndexPath(lang), lastmod: blogLastmod || undefined },
+          ...BLOG_POSTS.map((p) => ({ path: blogPostPath(p.slug, lang), lastmod: p.updatedAt })),
+        ]),
+      ];
       const lastmod = new Date().toISOString().slice(0, 10);
       this.emitFile({ type: "asset", fileName: "sitemap.xml", source: buildSitemapXml(siteUrl, paths, lastmod) });
+      this.emitFile({ type: "asset", fileName: BLOG_RSS_PATH.slice(1), source: buildBlogRss(BLOG_POSTS, siteUrl) });
     },
     writeBundle(options) {
       if (!options.dir) return;

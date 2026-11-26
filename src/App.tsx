@@ -60,6 +60,7 @@ const Index = lazyWithReload(() => import("./pages/Index"));
 const ToolPage = lazyWithReload(() => import("./pages/ToolPage"));
 const AboutPage = lazyWithReload(() => import("./pages/AboutPage"));
 const BlogPage = lazyWithReload(() => import("./pages/BlogPage"));
+const BlogPostPage = lazyWithReload(() => import("./pages/BlogPostPage"));
 const PricingPage = lazyWithReload(() => import("./pages/PricingPage"));
 const ContactPage = lazyWithReload(() => import("./pages/ContactPage"));
 const PrivacyPage = lazyWithReload(() => import("./pages/PrivacyPage"));
@@ -148,7 +149,10 @@ const App = () => (
                     <Route path="/reader" element={<ReaderPage />} />
                     <Route path="/ai/flashcards" element={<FlashcardsPage />} />
                     <Route path="/about" element={<AboutPage />} />
-                    <Route path="/blog" element={<BlogPage />} />
+                    <Route path="/blog" element={<BlogPage lang="en" />} />
+                    <Route path="/blog/:slug" element={<BlogPostPage lang="en" />} />
+                    <Route path="/hi/blog" element={<BlogPage lang="hi" />} />
+                    <Route path="/hi/blog/:slug" element={<BlogPostPage lang="hi" />} />
                     <Route path="/pricing" element={<PricingPage />} />
                     <Route path="/contact" element={<ContactPage />} />
                     <Route path="/privacy" element={<PrivacyPage />} />

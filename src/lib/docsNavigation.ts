@@ -44,7 +44,9 @@ export const slugifyHeading = (text: string): string =>
     .toLowerCase()
     .trim()
     .replace(/['’]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
+    // Unicode letters, marks and digits survive, so Hindi headings get real
+    // anchors (ASCII-only stripping left them with an empty id).
+    .replace(/[^\p{L}\p{M}\p{N}]+/gu, '-')
     .replace(/^-+|-+$/g, '');
 
 // ============================================================================
