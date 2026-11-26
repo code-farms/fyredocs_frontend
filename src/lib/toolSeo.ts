@@ -8,6 +8,7 @@
  */
 
 import { TOOL_COPY } from './toolCopy';
+import { PLAN_LIMIT_FALLBACKS as PLAN } from '../config/planLimits';
 
 /** The registry fields SEO needs. Satisfied by ToolDefinition at runtime and by extractToolBases at build time. */
 export interface ToolSeoBase {
@@ -68,21 +69,21 @@ const splitConversion = (name: string): { from: string; to: string } | null => {
 /**
  * FAQs every tool page shares, with the tool's own name and file limit so the
  * pages are not word-for-word copies. Facts here must match the backend:
- * guest plan 20 MB per file (auth-service plans table), guest files deleted
+ * guest plan limits (PLAN_LIMIT_FALLBACKS, the auth-service plans table), guest files deleted
  * after GUEST_JOB_TTL (30 min default), no watermark on any output.
  */
 const commonFaqs = (tool: ToolSeoBase): Faq[] => {
   const files = tool.maxFiles ?? 1;
   const perJob =
     files > 1
-      ? `up to ${Math.min(files, 5)} files at a time`
+      ? `up to ${Math.min(files, PLAN.guest.maxFilesPerJob)} files at a time`
       : 'one file at a time';
   // One shared answer, not three: repeated boilerplate across 38 tool pages
   // made them look like near-duplicates to Google ("Crawled – not indexed").
   return [
     {
       q: `Is ${tool.name} free, and are my files safe?`,
-      a: `Yes. ${tool.name} is free as a guest with no sign-up and no watermark — files up to 20 MB each, ${perJob}. Files are encrypted in transit, and guest files are deleted automatically about 30 minutes after processing.`,
+      a: `Yes. ${tool.name} is free as a guest with no sign-up and no watermark — files up to ${PLAN.guest.maxFileSizeMb} MB each, ${perJob}. Files are encrypted in transit, and guest files are deleted automatically about 30 minutes after processing.`,
     },
   ];
 };

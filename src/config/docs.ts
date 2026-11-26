@@ -1,5 +1,6 @@
-// Type-only: vite.config.ts imports this file at build time to prerender
-// /docs pages, and cannot resolve the '@/' alias for runtime imports.
+// Relative imports only: vite.config.ts imports this file at build time to
+// prerender /docs pages, and cannot resolve the '@/' alias.
+import { PLAN_LIMIT_FALLBACKS as PLAN } from './planLimits';
 import type { ToolId } from '../types';
 
 // ============================================================================
@@ -1527,9 +1528,9 @@ export const docs: DocEntry[] = [
         tableData: {
           headers: ['Plan', 'Max file size', 'Max files per job', 'Max total per job'],
           rows: [
-            ['Guest', '20 MB', '5', '100 MB'],
-            ['Free', '50 MB', '10', '300 MB'],
-            ['Pro', '300 MB', '50', '300 MB'],
+            ['Guest', `${PLAN.guest.maxFileSizeMb} MB`, `${PLAN.guest.maxFilesPerJob}`, `${PLAN.guest.maxJobInputMb} MB`],
+            ['Free', `${PLAN.free.maxFileSizeMb} MB`, `${PLAN.free.maxFilesPerJob}`, `${PLAN.free.maxJobInputMb} MB`],
+            ['Pro', `${PLAN.pro.maxFileSizeMb} MB`, `${PLAN.pro.maxFilesPerJob}`, `${PLAN.pro.maxJobInputMb} MB`],
           ],
         },
       },
@@ -1619,7 +1620,7 @@ export const docs: DocEntry[] = [
           headers: ['Feature', 'Guest', 'Free Account'],
           rows: [
             ['Access to all tools', 'Yes', 'Yes'],
-            ['File size limits', '20 MB per file, 5 files, 100 MB per job', '50 MB per file, 10 files, 300 MB per job'],
+            ['File size limits', `${PLAN.guest.maxFileSizeMb} MB per file, ${PLAN.guest.maxFilesPerJob} files, ${PLAN.guest.maxJobInputMb} MB per job`, `${PLAN.free.maxFileSizeMb} MB per file, ${PLAN.free.maxFilesPerJob} files, ${PLAN.free.maxJobInputMb} MB per job`],
             ['File retention', '2 hours', 'Longer (plan-based)'],
             ['Job history', 'No — lost when session ends', 'Yes — accessible across sessions'],
             ['Re-download results', 'Only during retention window', 'Yes, from job history'],
@@ -1684,7 +1685,7 @@ export const docs: DocEntry[] = [
       },
       {
         heading: 'What is the maximum file size?',
-        content: 'It depends on your plan: 20 MB per file for guests, 50 MB with a free account, and 300 MB on Pro. Each job also has a total size limit (100 MB for guests, 300 MB for Free and Pro). Image-based tools (Image to PDF, Scan to PDF) accept up to 20 MB per image on every plan. See the File Limits page for the full breakdown.',
+        content: `It depends on your plan: ${PLAN.guest.maxFileSizeMb} MB per file for guests, ${PLAN.free.maxFileSizeMb} MB with a free account, and ${PLAN.pro.maxFileSizeMb} MB on Pro. Each job also has a total size limit (${PLAN.guest.maxJobInputMb} MB for guests, ${PLAN.free.maxJobInputMb} MB for Free and Pro). Image-based tools (Image to PDF, Scan to PDF) accept up to 20 MB per image on every plan. See the File Limits page for the full breakdown.`,
         type: 'paragraph',
       },
       {

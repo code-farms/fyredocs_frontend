@@ -1928,7 +1928,7 @@ export const developerDocs: DevDocEntry[] = [
       },
       {
         heading: 'Validation',
-        content: 'Before adding files, validateFiles() checks: (1) the plan and tool limits via checkSelection() in src/lib/uploadLimits.ts — file count ≤ min(plan maxFilesPerJob, tool.maxFiles), each file ≤ min(plan maxFileSizeMb, plan maxJobInputMb, tool.maxFileSize if set), and the total of existing + new files ≤ plan maxJobInputMb, (2) each file type matches tool.acceptedFileTypes (checks both extension and MIME type), (3) no duplicate files (same name + size). Validation errors are returned as an array of {field, message, code} objects with codes: MAX_FILES_EXCEEDED, FILE_TOO_LARGE, JOB_TOO_LARGE, INVALID_FILE_TYPE, DUPLICATE_FILE.',
+        content: 'Before adding files, validateFiles() checks: (1) the plan and tool limits via checkSelection() in src/lib/uploadLimits.ts — file count ≤ min(plan maxFilesPerJob, tool.maxFiles), each file ≤ min(plan maxFileSizeMb, plan maxJobInputMb, tool.maxFileSize if set), and the total of existing + new files ≤ plan maxJobInputMb, (2) each file type matches tool.acceptedFileTypes (checks both extension and MIME type), (3) no duplicate files (same name + size). Validation errors are returned as an array of {field, message, code} objects with codes: MAX_FILES_EXCEEDED, FILE_TOO_LARGE, JOB_TOO_LARGE, INVALID_FILE_TYPE, DUPLICATE_FILE. Tools with planPageLimit: \'ocr\' (OCR PDF) also count each PDF\'s pages in the browser (countPdfPages) and stop a scan over the plan\'s maxOcrPages with checkOcrPages() and the upgrade dialog (reason pageCount); the optimize-pdf worker enforces the same limit and fails such a job with a sentence naming the page count and the limit.',
         type: 'paragraph',
       },
       {

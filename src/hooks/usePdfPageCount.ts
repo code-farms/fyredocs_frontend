@@ -11,6 +11,16 @@
 import { useState, useCallback } from 'react';
 import { PDFDocument } from 'pdf-lib';
 
+/** A PDF's page count, or null when it cannot be read (same rules as the hook). */
+export async function countPdfPages(file: File): Promise<number | null> {
+  try {
+    const pdfDoc = await PDFDocument.load(await file.arrayBuffer(), { ignoreEncryption: true });
+    return pdfDoc.getPageCount();
+  } catch {
+    return null;
+  }
+}
+
 interface PdfPageCountState {
   pageCount: number | null;
   isLoading: boolean;
@@ -24,16 +34,9 @@ export function usePdfPageCount() {
 
   const readPageCount = useCallback(async (file: File): Promise<number | null> => {
     setState({ pageCount: null, isLoading: true });
-    try {
-      const arrayBuffer = await file.arrayBuffer();
-      const pdfDoc = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true });
-      const count = pdfDoc.getPageCount();
-      setState({ pageCount: count, isLoading: false });
-      return count;
-    } catch {
-      setState({ pageCount: null, isLoading: false });
-      return null;
-    }
+    const count = await countPdfPages(file);
+    setState({ pageCount: count, isLoading: false });
+    return count;
   }, []);
 
   const reset = useCallback(() => {

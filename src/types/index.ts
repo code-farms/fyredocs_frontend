@@ -115,6 +115,11 @@ export interface ToolDefinition {
   supportsBatch?: boolean;
   /** Workbench should load the PDF page count for page-aware options. */
   needsPageCount?: boolean;
+  /**
+   * Each selected PDF's page count is checked against this plan limit before
+   * it is added ('ocr' = PlanLimits.maxOcrPages; the worker enforces it too).
+   */
+  planPageLimit?: 'ocr';
   /** Tool has a custom configure-stage body instead of a generic options panel. */
   bespoke?: 'sign-pdf' | 'edit-pdf';
   /** Label for the primary action button, given the selected file count. */

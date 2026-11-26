@@ -15,6 +15,7 @@
  * guest is never "unlimited" before /auth/plans has loaded.
  */
 import type { ToolDefinition } from '@/types';
+import { PLAN_LIMIT_FALLBACKS } from '@/config/planLimits';
 
 export const MB = 1024 * 1024;
 
@@ -23,19 +24,15 @@ export type PlanLimits = {
   maxFileSizeMb: number;
   maxFilesPerJob: number;
   maxJobInputMb: number;
+  /** Pages one OCR job may have; 0 = unknown (older backend), not checked here. */
+  maxOcrPages: number;
   retentionDays: number;
 };
 
-/** Used only until /auth/plans loads. Mirrors the guest row in the DB. */
-export const GUEST_FALLBACK_LIMITS: PlanLimits = {
-  name: 'guest',
-  maxFileSizeMb: 20,
-  maxFilesPerJob: 5,
-  maxJobInputMb: 100,
-  retentionDays: 0,
-};
+/** Used only until /auth/plans loads (values: src/config/planLimits.ts). */
+export const GUEST_FALLBACK_LIMITS: PlanLimits = { name: 'guest', ...PLAN_LIMIT_FALLBACKS.guest };
 
-export type UploadLimitReason = 'fileSize' | 'fileCount' | 'jobTotal';
+export type UploadLimitReason = 'fileSize' | 'fileCount' | 'jobTotal' | 'pageCount';
 
 export type SelectionCheck =
   | { ok: true }
@@ -119,6 +116,25 @@ export const checkSelection = ({
   return { ok: true };
 };
 
+/**
+ * Checks a scan's page count against the plan's OCR page limit. The worker
+ * enforces the same limit (optimize-pdf ocr_limits.go); this only saves the
+ * upload. An unknown count (null: unreadable PDF) or limit (0) passes.
+ */
+export const checkOcrPages = (
+  pages: number | null,
+  limits: PlanLimits,
+  fileName?: string
+): SelectionCheck => {
+  if (pages === null || !limits.maxOcrPages || pages <= limits.maxOcrPages) return { ok: true };
+  const label = fileName ? `"${fileName}"` : 'This scan';
+  return {
+    ok: false,
+    reason: 'pageCount',
+    message: `${label} has ${pages} pages, over the ${limits.maxOcrPages}-page OCR limit for your plan.`,
+  };
+};
+
 const isPositiveNumber = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v > 0;
 
 /** Parses a server `planLimits` object; null unless every size/count field is usable. */
@@ -133,6 +149,7 @@ export const parsePlanLimits = (raw: unknown): PlanLimits | null => {
     maxFileSizeMb: r.maxFileSizeMb,
     maxFilesPerJob: r.maxFilesPerJob,
     maxJobInputMb: r.maxJobInputMb,
+    maxOcrPages: isPositiveNumber(r.maxOcrPages) ? r.maxOcrPages : 0,
     retentionDays: typeof r.retentionDays === 'number' ? r.retentionDays : 0,
   };
 };
@@ -142,6 +159,7 @@ type PlanRow = {
   maxFileSizeMb: number;
   maxFilesPerJob: number;
   maxJobInputMb?: number;
+  maxOcrPages?: number;
   retentionDays: number;
 };
 

@@ -3,6 +3,7 @@ import { Lock, Target, Zap } from 'lucide-react';
 import { Heading, Text } from '@/components/ui/typography';
 import { getAllTools } from '@/config/tools';
 import { RETENTION_SENTENCE } from '@/components/pricing/planContent';
+import { PLAN_LIMIT_FALLBACKS } from '@/config/planLimits';
 
 const values = [
   {
@@ -29,7 +30,7 @@ const AboutPage = () => {
   const stats = [
     { value: `${toolCount}`, label: 'PDF tools' },
     { value: '15+', label: 'Supported file formats' },
-    { value: '0–30 days', label: 'Plan-based file retention' },
+    { value: `${PLAN_LIMIT_FALLBACKS.guest.retentionDays}–${PLAN_LIMIT_FALLBACKS.pro.retentionDays} days`, label: 'Plan-based file retention' },
   ];
 
   return (

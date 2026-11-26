@@ -105,6 +105,14 @@ const PricingPage = () => {
                     </li>
                     <li className="flex items-center justify-between gap-2">
                       <Text as="span" variant="body-sm" tone="muted">
+                        OCR pages per scan
+                      </Text>
+                      <Text as="span" variant="body-sm" className="font-medium">
+                        {tierLimits.maxOcrPages}
+                      </Text>
+                    </li>
+                    <li className="flex items-center justify-between gap-2">
+                      <Text as="span" variant="body-sm" tone="muted">
                         File retention
                       </Text>
                       <Text as="span" variant="body-sm" className="font-medium">

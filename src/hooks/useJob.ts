@@ -34,7 +34,7 @@
  */
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { Job, JobState, PasswordProtectOptions, PdfToPptOptions, ScanToPdfOptions, SplitOptions, WatermarkOptions, ToolId, ToolOptions } from '@/types';
-import { apiJson, apiRequest, buildApiUrl } from '@/lib/apiClient';
+import { ApiHttpError, apiJson, apiRequest, buildApiUrl } from '@/lib/apiClient';
 import { buildDownloadPath, buildJobPath } from '@/lib/toolApi';
 import { setGuestToken } from '@/lib/guestToken';
 import { ApiJob, jobFailureError, mapApiJob, mapStatus, requestFailureMessage } from '@/lib/jobMapper';
@@ -554,21 +554,28 @@ export const useJob = ({
           startSSE(toolId, mappedJob.id, normalizedIds, options);
         } catch (error) {
           const message = requestFailureMessage(error, 'Failed to create job.');
+          // Keep the backend's code (FILE_TOO_LARGE, JOB_TOO_LARGE, …) so the UI
+          // can tell a plan limit from a network blip. A 4xx other than 429
+          // fails the same way on retry, so it is not offered as retryable.
+          const httpError = error instanceof ApiHttpError ? error : undefined;
+          const code = httpError?.code || 'CREATE_FAILED';
+          const isRetryable =
+            !httpError || httpError.status >= 500 || httpError.status === 429 || httpError.status < 400;
           // No server job id exists on a create failure, so no correlationId.
           track({
             eventType: ACTIVITY_EVENTS.jobFailed,
             status: 'failed',
             toolId,
             failureReason: message,
-            errorCode: 'CREATE_FAILED',
+            errorCode: code,
           });
           setJob({
             ...pendingJob,
             state: 'failed',
             error: {
-              code: 'CREATE_FAILED',
+              code,
               message,
-              isRetryable: true,
+              isRetryable,
             },
           });
           setIsPolling(false);

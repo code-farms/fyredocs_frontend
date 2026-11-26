@@ -1,4 +1,5 @@
 import type { BlogPost } from '../types';
+import { PLAN_LIMIT_FALLBACKS as PLAN } from '../../../config/planLimits';
 
 const post: BlogPost = {
   slug: 'compress-pdf-for-online-forms',
@@ -27,7 +28,7 @@ const post: BlogPost = {
           type: 'steps',
           items: [
             'Check the exact limit on the portal (for example "max 200 KB, PDF only") and note the minimum too — some portals also reject files that are too small.',
-            'Open Compress PDF and upload your file. Guests can upload files up to 20 MB, no sign-up needed.',
+            `Open Compress PDF and upload your file. Guests can upload files up to ${PLAN.guest.maxFileSizeMb} MB, no sign-up needed.`,
             'Choose a level: Medium usually shaves 30–50%, High 50–70% and Extreme 70–90% (these are typical ranges, not guarantees).',
             'Download the result and check its size in your file manager before uploading.',
             'Open the compressed PDF and zoom in on small text, signatures and stamps. If you cannot read them, go one level lower.',
@@ -124,7 +125,7 @@ const post: BlogPost = {
           type: 'steps',
           items: [
             'पोर्टल पर सही लिमिट देखें (जैसे "max 200 KB, PDF only") और कम से कम साइज़ भी — कुछ पोर्टल बहुत छोटी फ़ाइल भी नहीं लेते।',
-            'Compress PDF खोलें और फ़ाइल अपलोड करें। गेस्ट 20 MB तक की फ़ाइल डाल सकते हैं, साइन-अप की ज़रूरत नहीं।',
+            `Compress PDF खोलें और फ़ाइल अपलोड करें। गेस्ट ${PLAN.guest.maxFileSizeMb} MB तक की फ़ाइल डाल सकते हैं, साइन-अप की ज़रूरत नहीं।`,
             'लेवल चुनें: Medium से आमतौर पर 30–50%, High से 50–70% और Extreme से 70–90% साइज़ घटता है (ये अंदाज़न आँकड़े हैं, गारंटी नहीं)।',
             'नतीजा डाउनलोड करें और अपलोड से पहले फ़ाइल मैनेजर में साइज़ जाँच लें।',
             'कंप्रेस हुई PDF खोलकर छोटे अक्षर, सिग्नेचर और मुहर ज़ूम करके देखें। साफ़ न दिखें तो एक लेवल कम चुनें।',

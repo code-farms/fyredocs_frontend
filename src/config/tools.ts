@@ -148,6 +148,7 @@ export const TOOLS: Record<ToolId, ToolDefinition> = {
     optionsPanel: 'ocr',
     defaultOptions: { language: 'eng' },
     supportsBatch: true,
+    planPageLimit: 'ocr',
     popular: true,
     actionLabel: (count) => (count > 1 ? `Run OCR on ${count} PDFs` : 'Run OCR'),
   },

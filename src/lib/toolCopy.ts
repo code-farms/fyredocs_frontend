@@ -5,10 +5,11 @@
  *
  * Every fact here must match the real tool (options panels in
  * src/components/tools/options, the backend processor, and the guest plan:
- * 20 MB per file, 5 files per job, files deleted ~30 min after processing).
+ * limits from src/config/planLimits.ts, files deleted ~30 min after processing).
  *
  * Pure: imported by toolSeo.ts, which vite.config.ts uses at build time.
  */
+import { PLAN_LIMIT_FALLBACKS as PLAN } from '../config/planLimits';
 import type { Faq } from './toolSeo';
 
 export interface ToolCopy {
@@ -45,7 +46,7 @@ export const TOOL_COPY: Record<string, ToolCopy> = {
       },
       {
         q: 'Can I convert several PDFs at once?',
-        a: 'Yes — guests can upload up to 5 files per job, and each produces its own Excel file.',
+        a: `Yes — guests can upload up to ${PLAN.guest.maxFilesPerJob} files per job, and each produces its own Excel file.`,
       },
     ],
   },
@@ -58,7 +59,7 @@ export const TOOL_COPY: Record<string, ToolCopy> = {
     ],
     tips: [
       'Passwords are case sensitive — many banks use part of your name in lowercase plus your date of birth; the statement email usually says the exact format.',
-      'You can unlock up to 5 files at a time as a guest if they share the same password.',
+      `You can unlock up to ${PLAN.guest.maxFilesPerJob} files at a time as a guest if they share the same password.`,
       'After unlocking, keep the copy somewhere private: anyone who gets the file can now open it.',
     ],
     faqs: [
@@ -202,7 +203,7 @@ export const TOOL_COPY: Record<string, ToolCopy> = {
     faqs: [
       {
         q: 'How many PDFs can I merge at once?',
-        a: 'Guests can merge up to 5 files per job, each up to 20 MB. A free account raises both limits.',
+        a: `Guests can merge up to ${PLAN.guest.maxFilesPerJob} files per job, each up to ${PLAN.guest.maxFileSizeMb} MB. A free account raises both limits.`,
       },
       {
         q: 'Can I merge password-protected PDFs?',
@@ -291,7 +292,7 @@ export const TOOL_COPY: Record<string, ToolCopy> = {
       },
       {
         q: 'How many photos can I add?',
-        a: 'Guests can add up to 5 images per job. A free account allows more.',
+        a: `Guests can add up to ${PLAN.guest.maxFilesPerJob} images per job. A free account allows more.`,
       },
     ],
   },
@@ -318,7 +319,7 @@ export const TOOL_COPY: Record<string, ToolCopy> = {
       },
       {
         q: 'Can I OCR several PDFs at once?',
-        a: 'Yes — OCR supports batch processing, up to 5 files per job for guests.',
+        a: `Yes — OCR supports batch processing, up to ${PLAN.guest.maxFilesPerJob} files per job for guests.`,
       },
     ],
   },
@@ -332,7 +333,7 @@ export const TOOL_COPY: Record<string, ToolCopy> = {
     tips: [
       'Levels: Low (~10–20% smaller), Medium (~30–50%), High (~50–70%) and Extreme (~70–90%) — typical ranges, not guarantees.',
       'Check that signatures and stamps are still readable after compressing; go one level lower if not.',
-      'Compress several PDFs in one batch — up to 5 files per job as a guest.',
+      `Compress several PDFs in one batch — up to ${PLAN.guest.maxFilesPerJob} files per job as a guest.`,
     ],
     faqs: [
       {
@@ -483,7 +484,7 @@ export const TOOL_COPY: Record<string, ToolCopy> = {
       },
       {
         q: 'Can I watermark several PDFs at once?',
-        a: 'Yes — watermarking supports batch processing, up to 5 files per job for guests.',
+        a: `Yes — watermarking supports batch processing, up to ${PLAN.guest.maxFilesPerJob} files per job for guests.`,
       },
     ],
   },
@@ -751,7 +752,7 @@ export const TOOL_COPY: Record<string, ToolCopy> = {
     faqs: [
       {
         q: 'How many images can I add?',
-        a: 'Guests can add up to 5 images per job. A free account allows more.',
+        a: `Guests can add up to ${PLAN.guest.maxFilesPerJob} images per job. A free account allows more.`,
       },
       {
         q: 'Can I change the order of images?',
@@ -1001,7 +1002,7 @@ export const TOOL_COPY: Record<string, ToolCopy> = {
       },
       {
         q: 'Can I convert several ODT files at once?',
-        a: 'Yes, up to 5 files per job as a guest; each becomes its own PDF.',
+        a: `Yes, up to ${PLAN.guest.maxFilesPerJob} files per job as a guest; each becomes its own PDF.`,
       },
       {
         q: 'Are links kept?',
@@ -1059,7 +1060,7 @@ export const TOOL_COPY: Record<string, ToolCopy> = {
       },
       {
         q: 'Can I convert several presentations at once?',
-        a: 'Yes, up to 5 files per job as a guest.',
+        a: `Yes, up to ${PLAN.guest.maxFilesPerJob} files per job as a guest.`,
       },
     ],
   },

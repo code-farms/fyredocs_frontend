@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   GUEST_FALLBACK_LIMITS,
   MB,
+  checkOcrPages,
   checkSelection,
   effectiveLimits,
   parsePlanLimits,
@@ -9,9 +10,9 @@ import {
   type PlanLimits,
 } from '@/lib/uploadLimits';
 
-const GUEST: PlanLimits = { name: 'guest', maxFileSizeMb: 20, maxFilesPerJob: 5, maxJobInputMb: 100, retentionDays: 0 };
-const FREE: PlanLimits = { name: 'free', maxFileSizeMb: 50, maxFilesPerJob: 10, maxJobInputMb: 300, retentionDays: 7 };
-const PRO: PlanLimits = { name: 'pro', maxFileSizeMb: 300, maxFilesPerJob: 50, maxJobInputMb: 300, retentionDays: 30 };
+const GUEST: PlanLimits = { name: 'guest', maxFileSizeMb: 20, maxFilesPerJob: 5, maxJobInputMb: 100, maxOcrPages: 10, retentionDays: 0 };
+const FREE: PlanLimits = { name: 'free', maxFileSizeMb: 50, maxFilesPerJob: 10, maxJobInputMb: 300, maxOcrPages: 30, retentionDays: 7 };
+const PRO: PlanLimits = { name: 'pro', maxFileSizeMb: 300, maxFilesPerJob: 50, maxJobInputMb: 300, maxOcrPages: 200, retentionDays: 30 };
 
 const PDF_TOOL = { maxFiles: 20 }; // no tool size cap
 const IMAGE_TOOL = { maxFiles: 20, maxFileSize: 20 * MB };
@@ -104,4 +105,26 @@ describe('parsePlanLimits', () => {
       expect(parsePlanLimits(raw)).toBeNull();
     }
   );
+
+  it('treats a missing maxOcrPages (older backend) as unknown, not a limit of 0 pages', () => {
+    const { maxOcrPages: _omit, ...older } = FREE;
+    expect(parsePlanLimits(older)).toEqual({ ...FREE, maxOcrPages: 0 });
+  });
+});
+
+describe('checkOcrPages', () => {
+  it('passes a scan within the plan limit', () => {
+    expect(checkOcrPages(30, FREE)).toEqual({ ok: true });
+  });
+
+  it('rejects a scan over the limit with the numbers', () => {
+    const check = checkOcrPages(31, FREE, 'scan.pdf');
+    expect(check).toMatchObject({ ok: false, reason: 'pageCount' });
+    expect(check.ok === false && check.message).toBe('"scan.pdf" has 31 pages, over the 30-page OCR limit for your plan.');
+  });
+
+  it('passes when the count or the limit is unknown (the worker still checks)', () => {
+    expect(checkOcrPages(null, GUEST)).toEqual({ ok: true });
+    expect(checkOcrPages(500, { ...GUEST, maxOcrPages: 0 })).toEqual({ ok: true });
+  });
 });

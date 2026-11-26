@@ -54,6 +54,7 @@ const CODE_SENTENCES: Record<string, string> = {
   FILE_TOO_LARGE: 'That file is too large for this tool.',
   JOB_TOO_LARGE: "These files together are over your plan's total size limit per job — remove some files or split them into separate jobs.",
   TOO_MANY_FILES: 'Too many files for one job — split them up and try again.',
+  TOO_MANY_PAGES: "This scan has more pages than one OCR job allows on your plan — split the PDF into smaller parts and try again.",
   NOT_FOUND: "The job or file couldn't be found — it may have expired.",
   UPSTREAM_UNAVAILABLE: 'A processing service is unreachable right now — try again in a moment.',
   SERVICE_UNAVAILABLE: 'A processing service is unreachable right now — try again in a moment.',

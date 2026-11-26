@@ -10,13 +10,13 @@ import { LocalModeToggle } from './LocalModeToggle';
 import { LocalResultCard } from './LocalResultCard';
 import { useJob } from '@/hooks/useJob';
 import { useBatchJob } from '@/hooks/useBatchJob';
-import { usePdfPageCount } from '@/hooks/usePdfPageCount';
+import { countPdfPages, usePdfPageCount } from '@/hooks/usePdfPageCount';
 import { toast } from '@/lib/toast';
 import { BatchProgress } from '@/components/common/BatchProgress';
 import { FileDropzoneHandle } from '@/components/common/FileDropzone';
 import { PlanLimitReason } from '@/components/common/PlanAwareFileDropzone';
 import { useUploadLimits } from '@/hooks/useUploadLimits';
-import { checkSelection } from '@/lib/uploadLimits';
+import { checkOcrPages, checkSelection } from '@/lib/uploadLimits';
 import { AnimatedSwitch } from '@/components/ui/animated';
 import { PANEL_SCHEMAS, PANEL_DEFAULTS, OptionsFormValues } from '../options';
 import { ToolStepper, WorkbenchStage } from './ToolStepper';
@@ -156,19 +156,31 @@ export const ToolWorkbench = ({ tool }: ToolWorkbenchProps) => {
     ? 'upload'
     : 'configure';
 
+  const handleLimitExceeded = useCallback((reason: PlanLimitReason, message: string) => {
+    setUpgradeDialog({ open: true, reason, message });
+  }, []);
+
   const handleFilesSelected = useCallback(
-    (selectedFiles: File[]) => {
+    async (selectedFiles: File[]) => {
+      // OCR: a scan over the plan's page limit would be rejected by the worker
+      // after the upload, so stop it here with the same numbers. Unreadable
+      // PDFs pass (the worker still checks).
+      if (tool.planPageLimit === 'ocr' && limits.maxOcrPages > 0) {
+        for (const file of selectedFiles) {
+          const check = checkOcrPages(await countPdfPages(file), limits, file.name);
+          if (check.ok === false) {
+            handleLimitExceeded(check.reason, check.message);
+            return;
+          }
+        }
+      }
       const result = addFiles(selectedFiles);
       if (result.isValid && tool.needsPageCount && selectedFiles.length > 0) {
         void readPageCount(selectedFiles[0]);
       }
     },
-    [addFiles, readPageCount, tool.needsPageCount]
+    [addFiles, handleLimitExceeded, limits, readPageCount, tool.needsPageCount, tool.planPageLimit]
   );
-
-  const handleLimitExceeded = useCallback((reason: PlanLimitReason, message: string) => {
-    setUpgradeDialog({ open: true, reason, message });
-  }, []);
 
   // The page-wide drop bypasses PlanAwareFileDropzone, so it runs the same
   // limit check itself before anything reaches addFiles / the uploader.

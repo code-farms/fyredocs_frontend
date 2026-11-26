@@ -48,6 +48,14 @@ const buildRows = (limits: PlanComparisonTableProps['limits']): ComparisonRow[] 
     },
   },
   {
+    label: 'OCR pages per scan',
+    values: {
+      guest: String(limits.guest.maxOcrPages),
+      free: String(limits.free.maxOcrPages),
+      pro: String(limits.pro.maxOcrPages),
+    },
+  },
+  {
     label: 'File retention',
     values: {
       guest: formatRetention(limits.guest.retentionDays),

@@ -1,11 +1,12 @@
 import { Lock, RefreshCw, Server, Timer, type LucideIcon } from 'lucide-react';
 import { Heading, Text } from '@/components/ui/typography';
 import { RETENTION_SENTENCE } from '@/components/pricing/planContent';
+import { PLAN_LIMIT_FALLBACKS } from '@/config/planLimits';
 
 const retentionChips = [
-  { plan: 'Guest', retention: '0 days' },
-  { plan: 'Free', retention: '7 days' },
-  { plan: 'Pro', retention: '30 days' },
+  { plan: 'Guest', retention: `${PLAN_LIMIT_FALLBACKS.guest.retentionDays} days` },
+  { plan: 'Free', retention: `${PLAN_LIMIT_FALLBACKS.free.retentionDays} days` },
+  { plan: 'Pro', retention: `${PLAN_LIMIT_FALLBACKS.pro.retentionDays} days` },
 ];
 
 interface TrustCard {

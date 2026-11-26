@@ -1,4 +1,5 @@
 import type { BlogPost } from '../types';
+import { PLAN_LIMIT_FALLBACKS as PLAN } from '../../../config/planLimits';
 
 const post: BlogPost = {
   slug: 'phone-photos-to-pdf',
@@ -44,7 +45,7 @@ const post: BlogPost = {
           heading: 'Make the PDF in four steps',
           type: 'steps',
           items: [
-            'Open Scan to PDF and add your photos (guests can add up to 5 files per job).',
+            `Open Scan to PDF and add your photos (guests can add up to ${PLAN.guest.maxFilesPerJob} files per job).`,
             'Tick the clean-ups you need — "Clean background (paper → white)" and "Deep shadow removal" fix most phone photos.',
             'Choose the page size (Auto works for most documents) and run it.',
             'Download the PDF and flip through it: every page upright, readable and in order.',
@@ -118,7 +119,7 @@ const post: BlogPost = {
         },
         {
           q: 'How many photos can I add at once?',
-          a: 'Guests can add up to 5 files per job. A free account raises the limits.',
+          a: `Guests can add up to ${PLAN.guest.maxFilesPerJob} files per job. A free account raises the limits.`,
         },
         {
           q: 'Are my documents kept on your servers?',

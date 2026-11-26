@@ -27,11 +27,21 @@ const REASON_COPY: Record<PlanLimitReason, string> = {
   fileCount: 'You have reached the maximum number of files per job for your current plan.',
   fileSize: 'One of your files exceeds the maximum file size for your current plan.',
   jobTotal: 'Your files together exceed the maximum total size per job for your current plan.',
+  pageCount: 'This scan has more pages than your current plan allows for OCR.',
 };
 
 /** The plan value that `reason` is about, for comparing against the next tier. */
-const limitFor = (reason: PlanLimitReason, p: Pick<PlanLimits, 'maxFileSizeMb' | 'maxFilesPerJob'> & { maxJobInputMb?: number }) =>
-  reason === 'fileCount' ? p.maxFilesPerJob : reason === 'fileSize' ? p.maxFileSizeMb : p.maxJobInputMb;
+const limitFor = (
+  reason: PlanLimitReason,
+  p: Pick<PlanLimits, 'maxFileSizeMb' | 'maxFilesPerJob'> & { maxJobInputMb?: number; maxOcrPages?: number }
+) =>
+  reason === 'fileCount'
+    ? p.maxFilesPerJob
+    : reason === 'fileSize'
+    ? p.maxFileSizeMb
+    : reason === 'pageCount'
+    ? p.maxOcrPages || undefined
+    : p.maxJobInputMb;
 
 /**
  * Shown when a file selection violates the user's plan limits.
@@ -109,6 +119,12 @@ export const UpgradeDialog = ({ open, onOpenChange, reason = 'fileSize', message
                 <li className="flex items-center gap-2">
                   <Check className="h-4 w-4 text-success" aria-hidden />
                   Up to {highlight.maxJobInputMb}MB in total per job
+                </li>
+              )}
+              {!!highlight.maxOcrPages && (
+                <li className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-success" aria-hidden />
+                  OCR on scans up to {highlight.maxOcrPages} pages
                 </li>
               )}
               <li className="flex items-center gap-2">

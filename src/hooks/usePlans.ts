@@ -8,6 +8,8 @@ export type Plan = {
   maxFilesPerJob: number;
   /** Total input size allowed per job. Optional only for older backends. */
   maxJobInputMb?: number;
+  /** Pages one OCR job may have. Optional only for older backends. */
+  maxOcrPages?: number;
   retentionDays: number;
   createdAt?: string;
 };

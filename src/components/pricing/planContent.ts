@@ -1,4 +1,5 @@
 import type { Plan } from '@/hooks/usePlans';
+import { PLAN_LIMIT_FALLBACKS } from '@/config/planLimits';
 
 /**
  * Static marketing copy + fallback limits for the three real plan tiers served
@@ -13,6 +14,8 @@ export interface PlanLimits {
   maxFileSizeMb: number;
   maxFilesPerJob: number;
   maxJobInputMb: number;
+  /** Pages one OCR job may have (subscription_plans.max_ocr_pages). */
+  maxOcrPages: number;
   retentionDays: number;
 }
 
@@ -36,8 +39,7 @@ export interface PlanTierContent {
  * Canonical retention copy — reuse this sentence anywhere retention is
  * explained so the claim stays consistent across the site.
  */
-export const RETENTION_SENTENCE =
-  'File retention is plan-based: guest files are deleted as soon as processing finishes (0-day retention), Free accounts keep results for 7 days, and Pro keeps them for 30 days — after that, everything is deleted automatically.';
+export const RETENTION_SENTENCE = `File retention is plan-based: guest files are deleted as soon as processing finishes (${PLAN_LIMIT_FALLBACKS.guest.retentionDays}-day retention), Free accounts keep results for ${PLAN_LIMIT_FALLBACKS.free.retentionDays} days, and Pro keeps them for ${PLAN_LIMIT_FALLBACKS.pro.retentionDays} days — after that, everything is deleted automatically.`;
 
 export const PLAN_TIERS: PlanTierContent[] = [
   {
@@ -53,7 +55,7 @@ export const PLAN_TIERS: PlanTierContent[] = [
       'Encrypted in transit (HTTPS)',
     ],
     cta: { label: 'Use tools now', href: '/all-tools' },
-    fallbackLimits: { maxFileSizeMb: 20, maxFilesPerJob: 5, maxJobInputMb: 100, retentionDays: 0 },
+    fallbackLimits: PLAN_LIMIT_FALLBACKS.guest,
   },
   {
     id: 'free',
@@ -64,11 +66,11 @@ export const PLAN_TIERS: PlanTierContent[] = [
     features: [
       'Everything in Guest',
       'Job history and re-downloads',
-      'Results kept for 7 days',
+      `Results kept for ${PLAN_LIMIT_FALLBACKS.free.retentionDays} days`,
       'Resumable chunked uploads',
     ],
     cta: { label: 'Create free account', href: '/signup' },
-    fallbackLimits: { maxFileSizeMb: 50, maxFilesPerJob: 10, maxJobInputMb: 300, retentionDays: 7 },
+    fallbackLimits: PLAN_LIMIT_FALLBACKS.free,
   },
   {
     id: 'pro',
@@ -78,14 +80,14 @@ export const PLAN_TIERS: PlanTierContent[] = [
     period: 'upgrade anytime',
     features: [
       'Everything in Free',
-      'Large files up to 300 MB',
-      'Up to 50 files per job',
-      'Results kept for 30 days',
+      `Large files up to ${PLAN_LIMIT_FALLBACKS.pro.maxFileSizeMb} MB`,
+      `Up to ${PLAN_LIMIT_FALLBACKS.pro.maxFilesPerJob} files per job`,
+      `Results kept for ${PLAN_LIMIT_FALLBACKS.pro.retentionDays} days`,
     ],
     cta: { label: 'Get Pro', href: '/signup?plan=pro' },
     highlighted: true,
     comingSoon: true,
-    fallbackLimits: { maxFileSizeMb: 300, maxFilesPerJob: 50, maxJobInputMb: 300, retentionDays: 30 },
+    fallbackLimits: PLAN_LIMIT_FALLBACKS.pro,
   },
 ];
 
@@ -97,6 +99,7 @@ export const resolvePlanLimits = (tier: PlanTierContent, plans?: Plan[]): PlanLi
     maxFileSizeMb: live.maxFileSizeMb ?? tier.fallbackLimits.maxFileSizeMb,
     maxFilesPerJob: live.maxFilesPerJob ?? tier.fallbackLimits.maxFilesPerJob,
     maxJobInputMb: live.maxJobInputMb ?? tier.fallbackLimits.maxJobInputMb,
+    maxOcrPages: live.maxOcrPages ?? tier.fallbackLimits.maxOcrPages,
     retentionDays: live.retentionDays ?? tier.fallbackLimits.retentionDays,
   };
 };

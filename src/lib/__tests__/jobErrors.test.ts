@@ -26,6 +26,15 @@ describe('code table', () => {
     );
   });
 
+  it('maps TOO_MANY_PAGES to a split-the-scan sentence', () => {
+    expect(humanizeJobFailure('TOO_MANY_PAGES', undefined)).toMatch(/more pages than one OCR job allows/);
+  });
+
+  it("shows the worker's page-limit sentence verbatim", () => {
+    const reason = 'This scan has 31 pages, and your plan allows up to 30 pages per OCR job. Split the PDF into smaller parts, or upgrade your plan for longer scans.';
+    expect(humanizeJobFailure(undefined, reason)).toBe(reason);
+  });
+
   it('maps JOB_TOO_LARGE to a total-per-job sentence', () => {
     expect(humanizeJobFailure('JOB_TOO_LARGE', undefined)).toMatch(/total size limit per job/);
   });
