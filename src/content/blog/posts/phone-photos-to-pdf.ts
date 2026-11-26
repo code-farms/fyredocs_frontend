@@ -6,7 +6,7 @@ const post: BlogPost = {
   publishedAt: '2026-11-25',
   updatedAt: '2026-11-26',
   readMinutes: 5,
-  tools: ['scan-to-pdf', 'image-to-pdf', 'merge', 'compress', 'reorder'],
+  tools: ['scan-to-pdf', 'image-to-pdf', 'merge', 'reorder', 'add-page-numbers', 'compress'],
   i18n: {
     en: {
       title: 'Turn Phone Photos of Marksheets and Certificates into One Clean PDF',
@@ -65,6 +65,16 @@ const post: BlogPost = {
           type: 'toolCta',
           toolId: 'merge',
           text: 'Combine your PDFs into one with Merge PDF',
+        },
+        {
+          type: 'toolCta',
+          toolId: 'reorder',
+          text: 'Put pages in the order the form asks for with Reorder Pages',
+        },
+        {
+          type: 'toolCta',
+          toolId: 'add-page-numbers',
+          text: 'Long application file? Number the pages so the office can refer to them',
         },
         {
           heading: 'Shrink it for the upload',
@@ -173,6 +183,16 @@ const post: BlogPost = {
           type: 'toolCta',
           toolId: 'merge',
           text: 'Merge PDF से अपनी PDF एक में जोड़ें',
+        },
+        {
+          type: 'toolCta',
+          toolId: 'reorder',
+          text: 'Reorder Pages से पेज फ़ॉर्म के माँगे क्रम में लगाएँ',
+        },
+        {
+          type: 'toolCta',
+          toolId: 'add-page-numbers',
+          text: 'लंबी आवेदन फ़ाइल है? पेज नंबर डालें ताकि दफ़्तर उनका हवाला दे सके',
         },
         {
           heading: 'अपलोड के लिए छोटा करें',

@@ -86,7 +86,7 @@ function prerenderPublicPages(outDir: string, siteUrl: string, toolsSource: stri
   const home = STATIC_PAGE_SEO["/"];
   const popular = ["pdf-to-word", "pdf-to-jpg", "compress", "merge", "word-to-pdf", "image-to-pdf", "split", "pdf-to-excel"]
     .flatMap((id) => (byId.has(id) ? [{ name: byId.get(id)!.name, route: byId.get(id)!.route }] : []));
-  write("index.html", page("/", home.title, home.description, buildHomeJsonLd(siteUrl), renderHomeStaticHtml(popular)));
+  write("index.html", page("/", home.title, home.description, buildHomeJsonLd(siteUrl), renderHomeStaticHtml(popular, tools)));
 
   for (const tool of tools) {
     const seo = getToolSeo(tool, tools);

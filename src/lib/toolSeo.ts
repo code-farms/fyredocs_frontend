@@ -34,6 +34,10 @@ export interface ToolSeo {
   faqs: Faq[];
   /** Tool ids linked under "Related tools". */
   related: string[];
+  /** Concrete situations the tool is for ("When to use"). Hand-written per tool. */
+  useCases?: string[];
+  /** Practical, tool-specific tips. Hand-written per tool. */
+  tips?: string[];
 }
 
 export interface SeoLink {
@@ -47,7 +51,11 @@ const BRAND = 'Fyredocs';
 export const DEFAULT_OG_IMAGE_PATH = '/og-image.jpg';
 export const OG_IMAGE_WIDTH = 1200;
 export const OG_IMAGE_HEIGHT = 630;
-const CONVERT_GROUPS = new Set(['convert-from-pdf', 'convert-to-pdf', 'libreoffice']);
+const CONVERT_GROUPS = new Set([
+  'convert-from-pdf',
+  'convert-to-pdf',
+  'libreoffice',
+]);
 
 /** "PDF to Word" → { from: "PDF", to: "Word" }; anything else → null. */
 const splitConversion = (name: string): { from: string; to: string } | null => {
@@ -63,19 +71,16 @@ const splitConversion = (name: string): { from: string; to: string } | null => {
  */
 const commonFaqs = (tool: ToolSeoBase): Faq[] => {
   const files = tool.maxFiles ?? 1;
-  const perJob = files > 1 ? `up to ${Math.min(files, 5)} files at a time` : 'one file at a time';
+  const perJob =
+    files > 1
+      ? `up to ${Math.min(files, 5)} files at a time`
+      : 'one file at a time';
+  // One shared answer, not three: repeated boilerplate across 38 tool pages
+  // made them look like near-duplicates to Google ("Crawled – not indexed").
   return [
     {
-      q: `Is ${tool.name} on Fyredocs free?`,
-      a: `Yes. ${tool.name} is free to use as a guest, with no sign-up and no watermark on your files. A free account raises the size limits and keeps your files for longer.`,
-    },
-    {
-      q: 'Are my files safe?',
-      a: 'Files are encrypted in transit and processed on our servers. As a guest, your files are deleted automatically about 30 minutes after processing; signed-in plans keep them for longer. We never share your documents.',
-    },
-    {
-      q: `How large a file can I use with ${tool.name}?`,
-      a: `Guests can upload files up to 20 MB each, ${perJob}. It works in any modern browser on Windows, Mac, Android and iPhone — nothing to install.`,
+      q: `Is ${tool.name} free, and are my files safe?`,
+      a: `Yes. ${tool.name} is free as a guest with no sign-up and no watermark — files up to 20 MB each, ${perJob}. Files are encrypted in transit, and guest files are deleted automatically about 30 minutes after processing.`,
     },
   ];
 };
@@ -108,7 +113,13 @@ const OVERRIDES: Record<string, Partial<ToolSeo>> = {
     h1: 'Word to PDF Converter',
     intro:
       'Convert Microsoft Word files (.doc and .docx) to PDF that looks the same on every device. Fonts, images, tables and page layout are preserved, ready to share, print or submit.',
-    related: ['pdf-to-word', 'merge', 'compress', 'excel-to-pdf', 'powerpoint-to-pdf'],
+    related: [
+      'pdf-to-word',
+      'merge',
+      'compress',
+      'excel-to-pdf',
+      'powerpoint-to-pdf',
+    ],
   },
   compress: {
     title: 'Compress PDF – Reduce PDF File Size Online Free | Fyredocs',
@@ -164,7 +175,13 @@ const OVERRIDES: Record<string, Partial<ToolSeo>> = {
         a: 'JPG files are smaller and ideal for sharing and uploading. Choose PDF to PNG when you need lossless quality for sharp text or diagrams.',
       },
     ],
-    related: ['image-to-pdf', 'pdf-to-image', 'compress', 'split', 'pdf-to-word'],
+    related: [
+      'image-to-pdf',
+      'pdf-to-image',
+      'compress',
+      'split',
+      'pdf-to-word',
+    ],
   },
   'pdf-to-image': {
     title: 'PDF to PNG Converter – Free, Lossless Quality | Fyredocs',
@@ -191,6 +208,31 @@ const OVERRIDES: Record<string, Partial<ToolSeo>> = {
     h1: 'PDF to Excel Converter',
     intro:
       'Pull tables out of PDF bank statements, invoices and reports into an editable Excel spreadsheet (.xlsx), so you can sort, filter and calculate instead of copying by hand.',
+    useCases: [
+      'Turning a bank statement PDF into a spreadsheet to total expenses, filter UPI payments or prepare an ITR.',
+      'Pulling GST invoice tables or price lists out of a PDF to calculate, sort or import into accounting software.',
+      'Converting result sheets, merit lists or attendance reports so you can search and sort by name or roll number.',
+      'Reusing tables from reports and research papers without retyping every row.',
+    ],
+    tips: [
+      'Works best on PDFs with real, selectable text. If you cannot select the text in your PDF, it is a scan — run OCR PDF first.',
+      'Unlock a password-protected statement before converting it.',
+      'Check totals and merged header cells after converting; complex layouts can split one column into two.',
+    ],
+    faqs: [
+      {
+        q: 'Does it work with scanned bank statements?',
+        a: 'Scanned pages are images, so there is no text to extract. Run the file through OCR PDF first to add a text layer, then convert it to Excel.',
+      },
+      {
+        q: 'Will each table go into its own sheet?',
+        a: 'Fyredocs detects the tables on each page and writes them into an .xlsx workbook you can open in Excel, Google Sheets or LibreOffice Calc. Review the layout before using the numbers.',
+      },
+      {
+        q: 'Can I convert several PDFs at once?',
+        a: 'Yes — guests can upload up to 5 files per job, and each produces its own Excel file.',
+      },
+    ],
     related: ['excel-to-pdf', 'pdf-to-word', 'ocr', 'pdf-to-text', 'compress'],
   },
   'excel-to-pdf': {
@@ -200,7 +242,13 @@ const OVERRIDES: Record<string, Partial<ToolSeo>> = {
     h1: 'Excel to PDF Converter',
     intro:
       'Convert Excel workbooks (.xls and .xlsx) into PDFs that keep your tables, borders and formatting intact — ready to share, print or attach.',
-    related: ['pdf-to-excel', 'word-to-pdf', 'powerpoint-to-pdf', 'merge', 'compress'],
+    related: [
+      'pdf-to-excel',
+      'word-to-pdf',
+      'powerpoint-to-pdf',
+      'merge',
+      'compress',
+    ],
   },
   'powerpoint-to-pdf': {
     title: 'PowerPoint to PDF – PPT/PPTX to PDF Free | Fyredocs',
@@ -218,7 +266,13 @@ const OVERRIDES: Record<string, Partial<ToolSeo>> = {
     h1: 'PDF to PowerPoint Converter',
     intro:
       'Turn a PDF into a PowerPoint presentation (.pptx), one slide per page, so you can edit, rearrange and present it.',
-    related: ['powerpoint-to-pdf', 'pdf-to-word', 'pdf-to-image', 'compress', 'merge'],
+    related: [
+      'powerpoint-to-pdf',
+      'pdf-to-word',
+      'pdf-to-image',
+      'compress',
+      'merge',
+    ],
   },
   'unlock-pdf': {
     title: 'Unlock PDF – Remove PDF Password Online Free | Fyredocs',
@@ -227,7 +281,38 @@ const OVERRIDES: Record<string, Partial<ToolSeo>> = {
     h1: 'Unlock PDF – Remove Password',
     intro:
       'Remove the open password from a PDF you have the password for — bank statements, e-statements and payslips — so you do not have to type it every time.',
-    related: ['password-protect', 'compress', 'merge', 'pdf-to-word', 'sign-pdf'],
+    useCases: [
+      'Bank e-statements, credit card bills and mutual fund CAS that ask for a password every single time you open them.',
+      'Salary slips and Form 16 from your employer that you need to upload to a loan, rental or visa portal that rejects locked files.',
+      'Old PDFs you protected yourself years ago and now want to merge, compress or print without typing the password.',
+      'Sending a statement to your CA or family: unlock it, then add one password of your own with Protect PDF.',
+    ],
+    tips: [
+      'Passwords are case sensitive — many banks use part of your name in lowercase plus your date of birth; the statement email usually says the exact format.',
+      'You can unlock up to 5 files at a time as a guest if they share the same password.',
+      'After unlocking, keep the copy somewhere private: anyone who gets the file can now open it.',
+    ],
+    faqs: [
+      {
+        q: 'Can I unlock a PDF without knowing the password?',
+        a: 'No. Unlock PDF removes a password you enter; it does not guess or crack unknown passwords. If you have forgotten it, download a fresh copy from the source (for example your bank’s net banking) or ask them for the password format.',
+      },
+      {
+        q: 'What is the password for my bank statement PDF?',
+        a: 'It depends on the bank. Some publish it — for example HDFC downloaded statements use your Customer ID — while many state the format only in the statement email. Our guide on bank statement passwords lists the officially published formats.',
+      },
+      {
+        q: 'Will unlocking change the content of my PDF?',
+        a: 'No. Text, images, layout and page count stay exactly the same; only the password requirement is removed.',
+      },
+    ],
+    related: [
+      'password-protect',
+      'compress',
+      'merge',
+      'pdf-to-word',
+      'sign-pdf',
+    ],
   },
   'password-protect': {
     title: 'Protect PDF – Add Password to PDF Online Free | Fyredocs',
@@ -236,6 +321,31 @@ const OVERRIDES: Record<string, Partial<ToolSeo>> = {
     h1: 'Protect PDF with a Password',
     intro:
       'Encrypt a PDF with a password so only the people you share it with can open it. Ideal for ID documents, contracts and financial records.',
+    useCases: [
+      'Emailing Aadhaar, PAN, passport or marksheet scans to an agent, college or employer.',
+      'Sharing salary slips, bank statements or ITR acknowledgements with a CA or loan officer.',
+      'Sending offer letters, invoices or contracts that only the recipient should open.',
+      'Keeping personal documents in cloud storage or on a shared family computer.',
+    ],
+    tips: [
+      'Choose AES-256 (the default) — use RC4-128 only if the reader has a very old PDF viewer.',
+      'Send the password through a different channel than the file, for example the PDF by email and the password by SMS or a call.',
+      'Use a long password that is not your date of birth or phone number, which are the first things people try.',
+    ],
+    faqs: [
+      {
+        q: 'Can I stop people from printing or copying my PDF?',
+        a: 'Yes. Along with the open password you can set permissions — allow or block printing, copying text and images, editing, page changes, and comments or form filling. Note that permissions are enforced by PDF viewers, so treat the open password as the real protection.',
+      },
+      {
+        q: 'Which encryption should I choose?',
+        a: 'AES-256 is the strongest and works in all modern viewers, so it is the default. AES-128 is also secure; RC4-128 exists only for very old software.',
+      },
+      {
+        q: 'What if I forget the password I set?',
+        a: 'There is no way to recover it from the protected file, so keep your original unprotected copy or store the password in a password manager.',
+      },
+    ],
     related: ['unlock-pdf', 'sign-pdf', 'watermark', 'compress', 'merge'],
   },
   'edit-pdf': {
@@ -245,7 +355,13 @@ const OVERRIDES: Record<string, Partial<ToolSeo>> = {
     h1: 'Edit PDF Online',
     intro:
       'Add text and annotations to any page of a PDF right in your browser — fill in details, add notes or correct information without special software.',
-    related: ['sign-pdf', 'add-page-numbers', 'watermark', 'pdf-to-word', 'rotate'],
+    related: [
+      'sign-pdf',
+      'add-page-numbers',
+      'watermark',
+      'pdf-to-word',
+      'rotate',
+    ],
   },
   'sign-pdf': {
     title: 'Sign PDF Online Free – Add Signature to PDF | Fyredocs',
@@ -254,7 +370,13 @@ const OVERRIDES: Record<string, Partial<ToolSeo>> = {
     h1: 'Sign PDF Online',
     intro:
       'Draw your signature and place it on any page of a PDF. Sign forms, agreements and letters without printing, signing and scanning.',
-    related: ['edit-pdf', 'password-protect', 'merge', 'compress', 'pdf-to-word'],
+    related: [
+      'edit-pdf',
+      'password-protect',
+      'merge',
+      'compress',
+      'pdf-to-word',
+    ],
   },
   rotate: {
     title: 'Rotate PDF – Rotate PDF Pages Online Free | Fyredocs',
@@ -270,7 +392,13 @@ const OVERRIDES: Record<string, Partial<ToolSeo>> = {
     h1: 'OCR PDF – Scanned PDF to Searchable Text',
     intro:
       'Scanned PDFs are just pictures of text. OCR (optical character recognition) adds a hidden text layer so you can search, select and copy the words.',
-    related: ['pdf-to-word', 'scan-to-pdf', 'pdf-to-text', 'compress', 'image-to-pdf'],
+    related: [
+      'pdf-to-word',
+      'scan-to-pdf',
+      'pdf-to-text',
+      'compress',
+      'image-to-pdf',
+    ],
   },
   'remove-pages': {
     metaDescription:
@@ -286,6 +414,31 @@ const OVERRIDES: Record<string, Partial<ToolSeo>> = {
     h1: 'Extract Pages from PDF',
     intro:
       'Pull just the pages you need — a single certificate page, a chapter or a few slides — into a new PDF, without changing the original.',
+    useCases: [
+      'Saving just the marksheet page from a long result PDF to upload to a form.',
+      'Sending one chapter or a few slides to a classmate instead of the whole book or deck.',
+      'Pulling a single statement month, invoice or receipt out of a combined PDF.',
+      'Keeping only the signed pages of an agreement for your records.',
+    ],
+    tips: [
+      'Type pages and ranges separated by commas: 2,4,6-8 keeps pages 2, 4, 6, 7 and 8.',
+      'The original file is not changed — you download a new PDF with only the pages you chose.',
+      'Need every page as its own file instead? Use Split PDF.',
+    ],
+    faqs: [
+      {
+        q: 'How do I select which pages to extract?',
+        a: 'Enter page numbers and ranges separated by commas, for example 1,3,5-9. Pages are saved in the order of the original document.',
+      },
+      {
+        q: 'What is the difference between Extract Pages and Remove Pages?',
+        a: 'Extract Pages keeps only the pages you list; Remove Pages keeps everything except the pages you list. Use whichever list is shorter.',
+      },
+      {
+        q: 'Does extracting reduce the file size?',
+        a: 'Usually yes, because the new PDF contains fewer pages. For a further reduction, run it through Compress PDF.',
+      },
+    ],
     related: ['split', 'remove-pages', 'merge', 'reorder', 'compress'],
   },
   reorder: {
@@ -294,6 +447,31 @@ const OVERRIDES: Record<string, Partial<ToolSeo>> = {
     h1: 'Reorder PDF Pages',
     intro:
       'Fix pages that were scanned or merged in the wrong order. Drag the page thumbnails into place and download the corrected PDF.',
+    useCases: [
+      'Fixing scans where the back of a page came before the front, or pages were fed into the scanner out of order.',
+      'Putting certificates in the order a form asks for — for example Class 10 before Class 12 before graduation.',
+      'Moving a cover page, index or annexure to the right place after merging several PDFs.',
+      'Rearranging slides or chapters before printing or submitting.',
+    ],
+    tips: [
+      'Type the full new order as page numbers separated by commas — for example 3,1,2 puts page 3 first.',
+      'Use the prefill button to start from 1,2,3… and then just move the numbers you need.',
+      'Pages scanned sideways or upside down? Fix them with Rotate Pages after reordering.',
+    ],
+    faqs: [
+      {
+        q: 'How do I change the order of pages?',
+        a: 'Enter every page number in the new order, separated by commas — for example 2,1,3,4 swaps the first two pages. The tool shows how many pages your PDF has.',
+      },
+      {
+        q: 'Can I remove pages while reordering?',
+        a: 'Reorder keeps every page. To drop pages, use Remove Pages first, then reorder the rest.',
+      },
+      {
+        q: 'Will reordering affect quality?',
+        a: 'No. Pages are moved as they are; text, images and resolution do not change.',
+      },
+    ],
     related: ['rotate', 'merge', 'remove-pages', 'split', 'extract-pages'],
   },
   watermark: {
@@ -302,7 +480,13 @@ const OVERRIDES: Record<string, Partial<ToolSeo>> = {
     h1: 'Add Watermark to PDF',
     intro:
       'Stamp a text or logo watermark on every page — "Confidential", "Draft" or your company logo — with the position, size and opacity you choose.',
-    related: ['password-protect', 'add-page-numbers', 'sign-pdf', 'edit-pdf', 'compress'],
+    related: [
+      'password-protect',
+      'add-page-numbers',
+      'sign-pdf',
+      'edit-pdf',
+      'compress',
+    ],
   },
   'add-page-numbers': {
     metaDescription:
@@ -310,6 +494,31 @@ const OVERRIDES: Record<string, Partial<ToolSeo>> = {
     h1: 'Add Page Numbers to PDF',
     intro:
       'Number the pages of a report, thesis or assignment automatically. Pick where the numbers go and download the numbered PDF.',
+    useCases: [
+      'Project reports, dissertations and theses that must have page numbers before submission.',
+      'Combined application files — certificates, forms and annexures merged into one PDF — so the office can refer to “page 7”.',
+      'Legal and RTI documents, tender bids and annexure sets where every page must be numbered.',
+      'Printed notes and handouts that are easier to keep in order once numbered.',
+    ],
+    tips: [
+      'Merge all your files first, then add numbers once, so the numbering runs continuously.',
+      'Use “Page 1 of N” for official submissions — the reader can tell at a glance that no page is missing.',
+      'Numbering a second part of a document? Set the starting number to continue from where part one ended (for example start at 25).',
+    ],
+    faqs: [
+      {
+        q: 'Where can I place the page numbers?',
+        a: 'Six positions: top or bottom, each at the left, centre or right. Bottom centre is the most common choice for reports.',
+      },
+      {
+        q: 'Which number formats are available?',
+        a: 'Plain numbers (1, 2, 3), “Page 1”, “Page 1 of N”, and dashed (- 1 -). You can also choose the starting number and the font size.',
+      },
+      {
+        q: 'Will adding numbers cover my content?',
+        a: 'Numbers sit in the page margin. If your pages have content right at the edge, pick a different position or a smaller font size.',
+      },
+    ],
     related: ['merge', 'watermark', 'edit-pdf', 'reorder', 'compress'],
   },
   'repair-pdf': {
@@ -334,7 +543,13 @@ const OVERRIDES: Record<string, Partial<ToolSeo>> = {
     h1: 'HTML to PDF Converter',
     intro:
       'Turn a saved web page or HTML file into a PDF that keeps its layout, images and styling — handy for receipts, reports and archiving pages.',
-    related: ['pdf-to-html', 'word-to-pdf', 'merge', 'compress', 'image-to-pdf'],
+    related: [
+      'pdf-to-html',
+      'word-to-pdf',
+      'merge',
+      'compress',
+      'image-to-pdf',
+    ],
   },
   'scan-to-pdf': {
     metaDescription:
@@ -355,7 +570,9 @@ const OVERRIDES: Record<string, Partial<ToolSeo>> = {
 };
 
 const defaultH1 = (tool: ToolSeoBase): string =>
-  CONVERT_GROUPS.has(tool.navGroup) && splitConversion(tool.name) ? `${tool.name} Converter` : tool.name;
+  CONVERT_GROUPS.has(tool.navGroup) && splitConversion(tool.name)
+    ? `${tool.name} Converter`
+    : tool.name;
 
 const defaultSteps = (tool: ToolSeoBase): string[] => {
   const conv = splitConversion(tool.name);
@@ -363,32 +580,47 @@ const defaultSteps = (tool: ToolSeoBase): string[] => {
   return [
     `Upload your ${input} file — drag and drop it or tap to choose a file.`,
     'Check the options and start the job.',
-    conv ? `Download your ${conv.to} file when processing finishes.` : 'Download the finished PDF when processing finishes.',
+    conv
+      ? `Download your ${conv.to} file when processing finishes.`
+      : 'Download the finished PDF when processing finishes.',
   ];
 };
 
 /** "<H1> – Free Online, No Signup | Fyredocs", shortened to stay within ~60 chars of a search result title. */
 const defaultTitle = (h1: string): string =>
-  [`${h1} – Free Online, No Signup | ${BRAND}`, `${h1} – Free Online | ${BRAND}`, `${h1} | ${BRAND}`].find(
-    (t) => t.length <= 60,
-  ) ?? `${h1} | ${BRAND}`;
+  [
+    `${h1} – Free Online, No Signup | ${BRAND}`,
+    `${h1} – Free Online | ${BRAND}`,
+    `${h1} | ${BRAND}`,
+  ].find((t) => t.length <= 60) ?? `${h1} | ${BRAND}`;
 
 /** Merged SEO copy for a tool: hand-written overrides first, generated defaults for the rest. */
-export const getToolSeo = (tool: ToolSeoBase, siblings: readonly ToolSeoBase[] = []): ToolSeo => {
+export const getToolSeo = (
+  tool: ToolSeoBase,
+  siblings: readonly ToolSeoBase[] = []
+): ToolSeo => {
   const o = OVERRIDES[tool.id] ?? {};
   const h1 = o.h1 ?? defaultH1(tool);
   const related =
-    o.related ?? siblings.filter((t) => t.navGroup === tool.navGroup && t.id !== tool.id).slice(0, 5).map((t) => t.id);
+    o.related ??
+    siblings
+      .filter((t) => t.navGroup === tool.navGroup && t.id !== tool.id)
+      .slice(0, 5)
+      .map((t) => t.id);
   return {
     title: o.title ?? defaultTitle(h1),
     metaDescription:
       o.metaDescription ??
       `Free online ${h1}: ${tool.description.charAt(0).toLowerCase()}${tool.description.slice(1)}. No signup, no watermark, works on any device.`,
     h1,
-    intro: o.intro ?? `${tool.description} online for free. No installation, no account and no watermark.`,
+    intro:
+      o.intro ??
+      `${tool.description} online for free. No installation, no account and no watermark.`,
     steps: o.steps ?? defaultSteps(tool),
     faqs: [...(o.faqs ?? []), ...commonFaqs(tool)],
     related,
+    ...(o.useCases ? { useCases: o.useCases } : {}),
+    ...(o.tips ? { tips: o.tips } : {}),
   };
 };
 
@@ -397,7 +629,11 @@ export const getToolSeo = (tool: ToolSeoBase, siblings: readonly ToolSeoBase[] =
 // ---------------------------------------------------------------------------
 
 export const PDF_CONVERTER_PATH = '/pdf-converter';
-export const PDF_CONVERTER_GROUPS = ['convert-from-pdf', 'convert-to-pdf', 'libreoffice'] as const;
+export const PDF_CONVERTER_GROUPS = [
+  'convert-from-pdf',
+  'convert-to-pdf',
+  'libreoffice',
+] as const;
 
 export const PDF_CONVERTER_SEO = {
   title: 'Free PDF Converter – Word, Excel, JPG & More | Fyredocs',
@@ -413,7 +649,10 @@ export const PDF_CONVERTER_SEO = {
 export const TITLE_SUFFIX = ` | ${BRAND}`;
 
 /** Title and description for non-tool public pages, shared by the pages and the prerender step. */
-export const STATIC_PAGE_SEO: Record<string, { title: string; description: string }> = {
+export const STATIC_PAGE_SEO: Record<
+  string,
+  { title: string; description: string }
+> = {
   '/': {
     title: `${BRAND} – Free Online PDF Tools`,
     description:
@@ -436,7 +675,8 @@ export const STATIC_PAGE_SEO: Record<string, { title: string; description: strin
   },
   '/contact': {
     title: `Contact${TITLE_SUFFIX}`,
-    description: 'Questions about Fyredocs PDF tools? Send us a message or email support@fyredocs.com.',
+    description:
+      'Questions about Fyredocs PDF tools? Send us a message or email support@fyredocs.com.',
   },
   '/docs': {
     title: `Help Guides${TITLE_SUFFIX}`,
@@ -445,17 +685,23 @@ export const STATIC_PAGE_SEO: Record<string, { title: string; description: strin
   },
   '/privacy': {
     title: `Privacy Policy${TITLE_SUFFIX}`,
-    description: 'How Fyredocs collects, uses and protects your data and the files you process with our PDF tools.',
+    description:
+      'How Fyredocs collects, uses and protects your data and the files you process with our PDF tools.',
   },
   '/terms': {
     title: `Terms of Service${TITLE_SUFFIX}`,
-    description: 'The terms that apply when you use Fyredocs online PDF tools and services.',
+    description:
+      'The terms that apply when you use Fyredocs online PDF tools and services.',
   },
   '/cookies': {
     title: `Cookie Policy${TITLE_SUFFIX}`,
-    description: 'Which cookies Fyredocs uses, why, and how to change your cookie preferences.',
+    description:
+      'Which cookies Fyredocs uses, why, and how to change your cookie preferences.',
   },
-  [PDF_CONVERTER_PATH]: { title: PDF_CONVERTER_SEO.title, description: PDF_CONVERTER_SEO.metaDescription },
+  [PDF_CONVERTER_PATH]: {
+    title: PDF_CONVERTER_SEO.title,
+    description: PDF_CONVERTER_SEO.metaDescription,
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -465,7 +711,11 @@ export const STATIC_PAGE_SEO: Record<string, { title: string; description: strin
 type JsonLd = Record<string, unknown>;
 
 /** SoftwareApplication + FAQPage + HowTo + BreadcrumbList for a tool page. URLs are omitted when siteUrl is "". */
-export const buildToolJsonLd = (tool: ToolSeoBase, seo: ToolSeo, siteUrl: string): JsonLd[] => {
+export const buildToolJsonLd = (
+  tool: ToolSeoBase,
+  seo: ToolSeo,
+  siteUrl: string
+): JsonLd[] => {
   const url = siteUrl ? siteUrl + tool.route : undefined;
   const app: JsonLd = {
     '@context': 'https://schema.org',
@@ -494,7 +744,12 @@ export const buildToolJsonLd = (tool: ToolSeoBase, seo: ToolSeo, siteUrl: string
       '@type': 'BreadcrumbList',
       itemListElement: [
         { '@type': 'ListItem', position: 1, name: 'Home', item: `${siteUrl}/` },
-        { '@type': 'ListItem', position: 2, name: 'All tools', item: `${siteUrl}/all-tools` },
+        {
+          '@type': 'ListItem',
+          position: 2,
+          name: 'All tools',
+          item: `${siteUrl}/all-tools`,
+        },
         { '@type': 'ListItem', position: 3, name: tool.name, item: url },
       ],
     });
@@ -503,7 +758,10 @@ export const buildToolJsonLd = (tool: ToolSeoBase, seo: ToolSeo, siteUrl: string
 };
 
 /** ItemList of converters for the hub page. */
-export const buildHubJsonLd = (links: readonly SeoLink[], siteUrl: string): JsonLd[] => [
+export const buildHubJsonLd = (
+  links: readonly SeoLink[],
+  siteUrl: string
+): JsonLd[] => [
   {
     '@context': 'https://schema.org',
     '@type': 'ItemList',
@@ -529,7 +787,12 @@ export const buildHomeJsonLd = (siteUrl: string): JsonLd[] =>
           logo: `${siteUrl}/favicon-192.png`,
           email: 'support@fyredocs.com',
         },
-        { '@context': 'https://schema.org', '@type': 'WebSite', name: BRAND, url: `${siteUrl}/` },
+        {
+          '@context': 'https://schema.org',
+          '@type': 'WebSite',
+          name: BRAND,
+          url: `${siteUrl}/`,
+        },
       ]
     : [];
 
@@ -539,7 +802,12 @@ export interface DocSeoInput {
   title: string;
   description: string;
   category?: string;
-  sections: { heading?: string; content: string; type: string; items?: string[] }[];
+  sections: {
+    heading?: string;
+    content: string;
+    type: string;
+    items?: string[];
+  }[];
 }
 
 export const docPath = (slug: string): string => `/docs/${slug}`;
@@ -547,13 +815,21 @@ export const docPath = (slug: string): string => `/docs/${slug}`;
  * Tool guides are titled "How to use X" so they target how-to searches and do
  * not compete with the tool page itself for "X".
  */
-export const docTitle = (doc: Pick<DocSeoInput, 'title' | 'category'>): string =>
-  doc.category === 'tool-guide' ? `How to Use ${doc.title} – Guide${TITLE_SUFFIX}` : `${doc.title} – Help${TITLE_SUFFIX}`;
+export const docTitle = (
+  doc: Pick<DocSeoInput, 'title' | 'category'>
+): string =>
+  doc.category === 'tool-guide'
+    ? `How to Use ${doc.title} – Guide${TITLE_SUFFIX}`
+    : `${doc.title} – Help${TITLE_SUFFIX}`;
 
 /** docs.ts descriptions are one short sentence; pad them to a useful snippet length. */
-export const docDescription = (doc: Pick<DocSeoInput, 'description'>): string => {
+export const docDescription = (
+  doc: Pick<DocSeoInput, 'description'>
+): string => {
   const base = doc.description.trim().replace(/\.?$/, '.');
-  return base.length >= 90 ? base : `${base} Step-by-step help for Fyredocs free online PDF tools.`;
+  return base.length >= 90
+    ? base
+    : `${base} Step-by-step help for Fyredocs free online PDF tools.`;
 };
 
 export const buildDocJsonLd = (doc: DocSeoInput, siteUrl: string): JsonLd[] => [
@@ -569,7 +845,8 @@ export const buildDocJsonLd = (doc: DocSeoInput, siteUrl: string): JsonLd[] => [
 ];
 
 /** JSON for a <script type="application/ld+json">, with "<" escaped so content can never close the tag. */
-export const serializeJsonLd = (data: JsonLd | JsonLd[]): string => JSON.stringify(data).replace(/</g, '\\u003c');
+export const serializeJsonLd = (data: JsonLd | JsonLd[]): string =>
+  JSON.stringify(data).replace(/</g, '\\u003c');
 
 // ---------------------------------------------------------------------------
 // Build-time helpers (prerender)
@@ -583,14 +860,27 @@ export const serializeJsonLd = (data: JsonLd | JsonLd[]): string => JSON.stringi
 export const extractToolBases = (toolsSource: string): ToolSeoBase[] => {
   const entry =
     /\bid:\s*'([^']+)',\s*name:\s*'([^']+)',\s*description:\s*'([^']+)',([\s\S]*?)\broute:\s*'([^']+)',\s*navGroup:\s*'([^']+)'/g;
-  return [...toolsSource.matchAll(entry)].map(([, id, name, description, middle, route, navGroup]) => {
-    const maxFiles = /\bmaxFiles:\s*(\d+)/.exec(middle);
-    return { id, name, description, route, navGroup, ...(maxFiles ? { maxFiles: Number(maxFiles[1]) } : {}) };
-  });
+  return [...toolsSource.matchAll(entry)].map(
+    ([, id, name, description, middle, route, navGroup]) => {
+      const maxFiles = /\bmaxFiles:\s*(\d+)/.exec(middle);
+      return {
+        id,
+        name,
+        description,
+        route,
+        navGroup,
+        ...(maxFiles ? { maxFiles: Number(maxFiles[1]) } : {}),
+      };
+    }
+  );
 };
 
 export const escapeHtml = (s: string): string =>
-  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 
 /**
  * Marks head tags added at build time. main.tsx removes them before React
@@ -622,28 +912,47 @@ export const injectHead = (template: string, meta: HeadMeta): string => {
     .replace(/(<meta name="description" content=")[^"]*(")/, `$1${d}$2`)
     .replace(/(<meta property="og:title" content=")[^"]*(")/, `$1${t}$2`)
     .replace(/(<meta property="og:description" content=")[^"]*(")/, `$1${d}$2`);
-  if (meta.lang) html = html.replace(/<html lang="[^"]*">/, `<html lang="${escapeHtml(meta.lang)}">`);
+  if (meta.lang)
+    html = html.replace(
+      /<html lang="[^"]*">/,
+      `<html lang="${escapeHtml(meta.lang)}">`
+    );
   const extra: string[] = [];
   if (meta.canonical) {
-    extra.push(`<link rel="canonical" href="${escapeHtml(meta.canonical)}" ${PRERENDER_ATTR} />`);
-    extra.push(`<meta property="og:url" content="${escapeHtml(meta.canonical)}" ${PRERENDER_ATTR} />`);
+    extra.push(
+      `<link rel="canonical" href="${escapeHtml(meta.canonical)}" ${PRERENDER_ATTR} />`
+    );
+    extra.push(
+      `<meta property="og:url" content="${escapeHtml(meta.canonical)}" ${PRERENDER_ATTR} />`
+    );
   }
   if (meta.image) {
-    extra.push(`<meta property="og:image" content="${escapeHtml(meta.image)}" ${PRERENDER_ATTR} />`);
-    extra.push(`<meta property="og:image:width" content="${OG_IMAGE_WIDTH}" ${PRERENDER_ATTR} />`);
-    extra.push(`<meta property="og:image:height" content="${OG_IMAGE_HEIGHT}" ${PRERENDER_ATTR} />`);
+    extra.push(
+      `<meta property="og:image" content="${escapeHtml(meta.image)}" ${PRERENDER_ATTR} />`
+    );
+    extra.push(
+      `<meta property="og:image:width" content="${OG_IMAGE_WIDTH}" ${PRERENDER_ATTR} />`
+    );
+    extra.push(
+      `<meta property="og:image:height" content="${OG_IMAGE_HEIGHT}" ${PRERENDER_ATTR} />`
+    );
   }
   for (const [hreflang, href] of Object.entries(meta.alternates ?? {})) {
-    extra.push(`<link rel="alternate" hreflang="${escapeHtml(hreflang)}" href="${escapeHtml(href)}" ${PRERENDER_ATTR} />`);
+    extra.push(
+      `<link rel="alternate" hreflang="${escapeHtml(hreflang)}" href="${escapeHtml(href)}" ${PRERENDER_ATTR} />`
+    );
   }
   if (meta.rss) {
     extra.push(
-      `<link rel="alternate" type="application/rss+xml" title="${escapeHtml(meta.rss.title)}" href="${escapeHtml(meta.rss.href)}" ${PRERENDER_ATTR} />`,
+      `<link rel="alternate" type="application/rss+xml" title="${escapeHtml(meta.rss.title)}" href="${escapeHtml(meta.rss.href)}" ${PRERENDER_ATTR} />`
     );
   }
   if (meta.jsonLd?.length)
-    extra.push(`<script type="application/ld+json" ${PRERENDER_ATTR}>${serializeJsonLd(meta.jsonLd)}</script>`);
-  if (extra.length) html = html.replace('</head>', `    ${extra.join('\n    ')}\n  </head>`);
+    extra.push(
+      `<script type="application/ld+json" ${PRERENDER_ATTR}>${serializeJsonLd(meta.jsonLd)}</script>`
+    );
+  if (extra.length)
+    html = html.replace('</head>', `    ${extra.join('\n    ')}\n  </head>`);
   return html;
 };
 
@@ -652,25 +961,41 @@ export const injectRoot = (template: string, body: string): string =>
   template.replace('<div id="root"></div>', `<div id="root">${body}</div>`);
 
 /** Minimal inline styles so the static content is readable for the moment before the app mounts. */
+// System fonts only: with "Inter" here, the static copy re-wrapped when the
+// bundled Inter font finished loading and every block below it shifted (CLS
+// 0.035 on long tool pages). React replaces this markup with Inter text anyway.
 export const STATIC_STYLE =
   // body{margin:0} matches Tailwind's preflight: if the first paint beats the
   // stylesheet, the browser's default 8px margin otherwise snaps away (CLS).
-  '<style>body{margin:0}.seo-static{max-width:56rem;margin:0 auto;padding:2rem 1rem;font-family:Inter,system-ui,sans-serif;line-height:1.6}.seo-static a{color:inherit}</style>';
+  '<style>body{margin:0}.seo-static{max-width:56rem;margin:0 auto;padding:2rem 1rem;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.6}.seo-static a{color:inherit}</style>';
+
+const bulletList = (items: readonly string[]): string =>
+  `<ul>${items.map((i) => `<li>${escapeHtml(i)}</li>`).join('')}</ul>`;
 
 export const linkList = (links: readonly SeoLink[]): string =>
   `<ul>${links.map((l) => `<li><a href="${escapeHtml(l.route)}">${escapeHtml(l.name)}</a></li>`).join('')}</ul>`;
 
 /** Static HTML for a tool page: H1, intro, how-to steps, FAQ and related links. */
-export const renderToolStaticHtml = (seo: ToolSeo, related: readonly SeoLink[], guides: readonly SeoLink[] = []): string =>
+export const renderToolStaticHtml = (
+  seo: ToolSeo,
+  related: readonly SeoLink[],
+  guides: readonly SeoLink[] = []
+): string =>
   [
     STATIC_STYLE,
     '<main class="seo-static">',
     `<h1>${escapeHtml(seo.h1)}</h1>`,
     `<p>${escapeHtml(seo.intro)}</p>`,
+    seo.useCases?.length
+      ? `<h2>When to use ${escapeHtml(seo.h1)}</h2>${bulletList(seo.useCases)}`
+      : '',
+    seo.tips?.length ? `<h2>Tips</h2>${bulletList(seo.tips)}` : '',
     `<h2>How to use ${escapeHtml(seo.h1)}</h2>`,
     `<ol>${seo.steps.map((s) => `<li>${escapeHtml(s)}</li>`).join('')}</ol>`,
     '<h2>Frequently asked questions</h2>',
-    ...seo.faqs.map((f) => `<h3>${escapeHtml(f.q)}</h3><p>${escapeHtml(f.a)}</p>`),
+    ...seo.faqs.map(
+      (f) => `<h3>${escapeHtml(f.q)}</h3><p>${escapeHtml(f.a)}</p>`
+    ),
     related.length ? `<h2>Related tools</h2>${linkList(related)}` : '',
     guides.length ? `<h2>Guides</h2>${linkList(guides)}` : '',
     '<p><a href="/all-tools">See all PDF tools</a></p>',
@@ -689,20 +1014,43 @@ export const renderHubStaticHtml = (links: readonly SeoLink[]): string =>
   ].join('');
 
 /** Static HTML for the home page: H1, intro and links to the main tools. */
-export const renderHomeStaticHtml = (links: readonly SeoLink[]): string =>
-  [
+/** Nav-group titles for the home page's tool list (mirrors src/config/navigation.ts, which this pure module cannot import). */
+const NAV_GROUP_TITLES: Record<string, string> = {
+  organize: 'Organize PDF',
+  optimize: 'Optimize PDF',
+  'convert-to-pdf': 'Convert to PDF',
+  'convert-from-pdf': 'Convert from PDF',
+  libreoffice: 'LibreOffice',
+  edit: 'Edit PDF',
+  security: 'PDF Security',
+};
+
+/**
+ * Static HTML for the home page: H1, intro, popular tools, then every tool
+ * grouped by category, so each tool page is linked from the home page HTML.
+ */
+export const renderHomeStaticHtml = (popular: readonly SeoLink[], tools: readonly ToolSeoBase[] = []): string => {
+  const groups = Object.entries(NAV_GROUP_TITLES)
+    .map(([id, title]) => ({ title, links: tools.filter((t) => t.navGroup === id).map((t) => ({ name: t.name, route: t.route })) }))
+    .filter((g) => g.links.length > 0);
+  return [
     STATIC_STYLE,
     '<main class="seo-static">',
     `<h1>Free Online PDF Tools</h1>`,
     `<p>${escapeHtml(STATIC_PAGE_SEO['/'].description)}</p>`,
     '<h2>Popular tools</h2>',
-    linkList(links),
-    `<p><a href="${PDF_CONVERTER_PATH}">Free PDF converter</a> · <a href="/all-tools">All PDF tools</a></p>`,
+    linkList(popular),
+    ...groups.map((g) => `<h2>${escapeHtml(g.title)}</h2>${linkList(g.links)}`),
+    `<p><a href="${PDF_CONVERTER_PATH}">Free PDF converter</a> · <a href="/all-tools">All PDF tools</a> · <a href="/blog">Blog</a></p>`,
     '</main>',
   ].join('');
+};
 
 /** Static HTML for a help guide: headings, paragraphs and lists (code and diagrams skipped). */
-export const renderDocStaticHtml = (doc: DocSeoInput, tool?: SeoLink): string => {
+export const renderDocStaticHtml = (
+  doc: DocSeoInput,
+  tool?: SeoLink
+): string => {
   const body = doc.sections
     .filter((sec) => sec.type !== 'code' && sec.type !== 'mermaid')
     .map((sec) => {
@@ -711,7 +1059,9 @@ export const renderDocStaticHtml = (doc: DocSeoInput, tool?: SeoLink): string =>
       if (sec.content) parts.push(`<p>${escapeHtml(sec.content)}</p>`);
       if (sec.items?.length) {
         const tag = sec.type === 'steps' ? 'ol' : 'ul';
-        parts.push(`<${tag}>${sec.items.map((i) => `<li>${escapeHtml(i)}</li>`).join('')}</${tag}>`);
+        parts.push(
+          `<${tag}>${sec.items.map((i) => `<li>${escapeHtml(i)}</li>`).join('')}</${tag}>`
+        );
       }
       return parts.join('');
     });
@@ -721,14 +1071,18 @@ export const renderDocStaticHtml = (doc: DocSeoInput, tool?: SeoLink): string =>
     `<h1>${escapeHtml(doc.title)}</h1>`,
     `<p>${escapeHtml(doc.description)}</p>`,
     ...body,
-    tool ? `<p><a href="${escapeHtml(tool.route)}">Open ${escapeHtml(tool.name)}</a></p>` : '',
+    tool
+      ? `<p><a href="${escapeHtml(tool.route)}">Open ${escapeHtml(tool.name)}</a></p>`
+      : '',
     '<p><a href="/docs">All help guides</a> · <a href="/all-tools">All PDF tools</a></p>',
     '</main>',
   ].join('');
 };
 
 /** Static HTML for the help-guide index. */
-export const renderDocsIndexStaticHtml = (docs: readonly DocSeoInput[]): string =>
+export const renderDocsIndexStaticHtml = (
+  docs: readonly DocSeoInput[]
+): string =>
   [
     STATIC_STYLE,
     '<main class="seo-static">',

@@ -28,6 +28,32 @@ export const ToolSeoContent = ({ seo, toolId }: { seo: ToolSeo; toolId: string }
         <Text tone="muted">{seo.intro}</Text>
       </div>
 
+      {seo.useCases && seo.useCases.length > 0 && (
+        <div>
+          <Heading level="h2" className="mb-4">
+            When to use {seo.h1}
+          </Heading>
+          <ul className="list-disc space-y-2 pl-5 text-muted-foreground">
+            {seo.useCases.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {seo.tips && seo.tips.length > 0 && (
+        <div className="rounded-xl border border-primary/20 bg-primary/5 p-5">
+          <Heading level="h2" className="mb-3 text-xl">
+            Tips
+          </Heading>
+          <ul className="list-disc space-y-2 pl-5">
+            {seo.tips.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div>
         <Heading level="h2" className="mb-4">
           How to use {seo.h1}

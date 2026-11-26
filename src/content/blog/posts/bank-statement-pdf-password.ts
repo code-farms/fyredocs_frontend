@@ -16,7 +16,7 @@ const post: BlogPost = {
   publishedAt: '2026-11-26',
   updatedAt: '2026-11-26',
   readMinutes: 6,
-  tools: ['unlock-pdf', 'password-protect', 'merge', 'compress'],
+  tools: ['unlock-pdf', 'password-protect', 'merge', 'pdf-to-excel', 'compress'],
   i18n: {
     en: {
       title: 'Bank Statement PDF Password: What Is It, and How to Remove It',
@@ -87,6 +87,11 @@ const post: BlogPost = {
           type: 'toolCta',
           toolId: 'merge',
           text: 'Combine several unlocked statements into one PDF',
+        },
+        {
+          type: 'toolCta',
+          toolId: 'pdf-to-excel',
+          text: 'Need the transactions in a spreadsheet? Convert the unlocked statement with PDF to Excel',
         },
         {
           type: 'mistakes',
@@ -185,6 +190,11 @@ const post: BlogPost = {
           type: 'toolCta',
           toolId: 'merge',
           text: 'कई अनलॉक स्टेटमेंट को एक PDF में जोड़ें',
+        },
+        {
+          type: 'toolCta',
+          toolId: 'pdf-to-excel',
+          text: 'लेन-देन स्प्रेडशीट में चाहिए? अनलॉक स्टेटमेंट को PDF to Excel से बदलें',
         },
         {
           type: 'mistakes',

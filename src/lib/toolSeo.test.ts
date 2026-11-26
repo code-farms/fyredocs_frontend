@@ -41,7 +41,7 @@ describe('getToolSeo', () => {
       expect(seo.metaDescription.length, tool.id).toBeLessThanOrEqual(160);
       // Tool names keep their casing ("PDF", not "pdf") in generated copy.
       expect(seo.metaDescription, tool.id).not.toMatch(/\bpdf\b/);
-      expect(seo.faqs.length).toBeGreaterThanOrEqual(3);
+      expect(seo.faqs.length).toBeGreaterThanOrEqual(1);
       expect(seo.steps.length).toBe(3);
       for (const id of seo.related) expect(ids.has(id), `${tool.id} → ${id}`).toBe(true);
     }
@@ -62,6 +62,26 @@ describe('pdf-to-jpg', () => {
     const split = getToolSeo(tools.find((t) => t.id === 'split')!, tools);
     expect(merge.faqs.at(-1)!.a).toContain('up to 5 files');
     expect(split.faqs.at(-1)!.a).toContain('one file at a time');
+  });
+});
+
+describe('deep copy for previously "crawled – not indexed" tools', () => {
+  const DEEP = ['unlock-pdf', 'password-protect', 'pdf-to-excel', 'add-page-numbers', 'extract-pages', 'reorder'];
+
+  it.each(DEEP)('%s has use cases, tips and tool-specific FAQs', (id) => {
+    const seo = getToolSeo(tools.find((t) => t.id === id)!, tools);
+    expect(seo.useCases?.length ?? 0).toBeGreaterThanOrEqual(3);
+    expect(seo.tips?.length ?? 0).toBeGreaterThanOrEqual(2);
+    // 3 tool-specific + 1 shared
+    expect(seo.faqs.length).toBeGreaterThanOrEqual(4);
+    const html = renderToolStaticHtml(seo, []);
+    expect(html).toContain('When to use');
+    expect(html).toContain(seo.tips![0].replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;'));
+  });
+
+  it('shares only one boilerplate FAQ across tool pages', () => {
+    const generic = getToolSeo(tools.find((t) => t.id === 'pdf-to-odt')!, tools);
+    expect(generic.faqs).toHaveLength(1);
   });
 });
 
