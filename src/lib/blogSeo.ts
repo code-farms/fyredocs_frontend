@@ -39,6 +39,13 @@ export const blogIndexTitle = (lang: BlogLang): string => `${BLOG_UI[lang].index
 
 export const BLOG_RSS_PATH = '/blog/rss.xml';
 
+/**
+ * schema.org dates need a full datetime with an offset — a bare YYYY-MM-DD is
+ * flagged by Google's Rich Results Test ("invalid datetime", "missing a
+ * timezone"). Post dates are Indian dates, so this is midnight IST.
+ */
+export const toSchemaDateTime = (isoDate: string): string => `${isoDate}T00:00:00+05:30`;
+
 /** Posts that link to a tool, newest first, for the tool page's "Guides" list. */
 export const postsForTool = (posts: readonly BlogPost[], toolId: string): BlogPost[] =>
   posts.filter((p) => p.tools.includes(toolId));
@@ -69,8 +76,8 @@ export const buildBlogPostJsonLd = (post: BlogPost, lang: BlogLang, siteUrl: str
       headline: l.title,
       description: l.description,
       inLanguage: lang === 'hi' ? 'hi-IN' : 'en-IN',
-      datePublished: post.publishedAt,
-      dateModified: post.updatedAt,
+      datePublished: toSchemaDateTime(post.publishedAt),
+      dateModified: toSchemaDateTime(post.updatedAt),
       author: org,
       publisher: org,
       ...(siteUrl ? { image: siteUrl + DEFAULT_OG_IMAGE_PATH } : {}),
@@ -110,8 +117,8 @@ export const buildBlogIndexJsonLd = (posts: readonly BlogPost[], lang: BlogLang,
     blogPost: posts.map((p) => ({
       '@type': 'BlogPosting',
       headline: p.i18n[lang].title,
-      datePublished: p.publishedAt,
-      dateModified: p.updatedAt,
+      datePublished: toSchemaDateTime(p.publishedAt),
+      dateModified: toSchemaDateTime(p.updatedAt),
       ...(siteUrl ? { url: siteUrl + blogPostPath(p.slug, lang) } : {}),
     })),
   },

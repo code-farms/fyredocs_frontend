@@ -4,7 +4,13 @@ import { describe, expect, it } from 'vitest';
 import { BLOG_POSTS } from './index';
 import { BLOG_LANGS } from './types';
 import { extractToolBases } from '@/lib/toolSeo';
-import { blogPostTitle, buildBlogPostJsonLd, buildBlogRss, renderBlogPostStaticHtml } from '@/lib/blogSeo';
+import {
+  blogPostTitle,
+  buildBlogIndexJsonLd,
+  buildBlogPostJsonLd,
+  buildBlogRss,
+  renderBlogPostStaticHtml,
+} from '@/lib/blogSeo';
 
 const toolIds = new Set(
   extractToolBases(readFileSync(path.resolve(__dirname, '../../config/tools.ts'), 'utf8')).map((t) => t.id),
@@ -66,6 +72,18 @@ describe('blog SEO output', () => {
   it('builds BlogPosting, FAQPage and BreadcrumbList JSON-LD', () => {
     const types = buildBlogPostJsonLd(post, 'hi', 'https://fyredocs.com').map((x) => x['@type']);
     expect(types).toEqual(['BlogPosting', 'FAQPage', 'BreadcrumbList']);
+  });
+
+  it('uses full datetimes with a timezone for schema.org dates', () => {
+    const DT = /^\d{4}-\d{2}-\d{2}T00:00:00\+05:30$/;
+    const [article] = buildBlogPostJsonLd(post, 'en', 'https://fyredocs.com');
+    expect(article.datePublished).toMatch(DT);
+    expect(article.dateModified).toMatch(DT);
+    const [blog] = buildBlogIndexJsonLd(BLOG_POSTS, 'en', 'https://fyredocs.com');
+    for (const item of blog.blogPost as { datePublished: string; dateModified: string }[]) {
+      expect(item.datePublished).toMatch(DT);
+      expect(item.dateModified).toMatch(DT);
+    }
   });
 
   it('renders the full article as static HTML', () => {
