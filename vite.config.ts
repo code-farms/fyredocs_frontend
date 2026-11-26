@@ -2,7 +2,8 @@
 import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
-import { mkdirSync, readFileSync, writeFileSync } from "fs";
+import { mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "fs";
+import zlib from "zlib";
 import {
   STATIC_PUBLIC_PATHS,
   buildRobotsTxt,
@@ -207,6 +208,50 @@ function seoPlugin(siteUrl: string): Plugin {
   };
 }
 
+/**
+ * Writes .br / .gz next to every text file
+ * in dist, so Caddy's `file_server { precompressed }` serves them with zero
+ * per-request CPU. Each client gets the best variant its Accept-Encoding
+ * lists; clients that list none get the original file. No .zst: Brotli at
+ * quality 11 beats zstd on these files, and every zstd-capable browser also
+ * accepts br, so a .zst would never be served. Runs in closeBundle,
+ * after seoPlugin's writeBundle has written the prerendered *.html pages.
+ */
+function precompressPlugin(): Plugin {
+  const COMPRESSIBLE = /\.(js|mjs|css|html|svg|json|txt|xml|webmanifest)$/;
+  const MIN_BYTES = 1024;
+  let outDir = "dist";
+  const walk = (dir: string): string[] =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+      const full = path.join(dir, e.name);
+      return e.isDirectory() ? walk(full) : [full];
+    });
+  return {
+    name: "fyredocs-precompress",
+    apply: "build",
+    enforce: "post",
+    configResolved(config) {
+      outDir = path.resolve(config.root, config.build.outDir);
+    },
+    closeBundle() {
+      for (const file of walk(outDir)) {
+        if (!COMPRESSIBLE.test(file) || statSync(file).size < MIN_BYTES) continue;
+        const raw = readFileSync(file);
+        writeFileSync(
+          `${file}.br`,
+          zlib.brotliCompressSync(raw, {
+            params: {
+              [zlib.constants.BROTLI_PARAM_QUALITY]: 11,
+              [zlib.constants.BROTLI_PARAM_SIZE_HINT]: raw.length,
+            },
+          }),
+        );
+        writeFileSync(`${file}.gz`, zlib.gzipSync(raw, { level: 9 }));
+      }
+    },
+  };
+}
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   // Pass "" so loadEnv returns ALL vars, not just VITE_-prefixed ones.
@@ -271,7 +316,7 @@ export default defineConfig(({ mode }) => {
         },
       },
     },
-    plugins: [react(), seoPlugin(siteUrl)],
+    plugins: [react(), seoPlugin(siteUrl), precompressPlugin()],
     resolve: {
       alias: {
         "@": path.resolve(import.meta.dirname, "./src"),
