@@ -87,6 +87,9 @@ export const buildOptions = (
     case 'compress':
       return { quality: values.quality as string } as ToolOptions;
 
+    case 'pdf-to-ppt':
+      return { mode: values.mode === 'image' ? 'image' : 'editable' } as ToolOptions;
+
     case 'page-selection':
       return { pages: (values.pages as string).trim() } as ToolOptions;
 

@@ -33,7 +33,7 @@
  * not attempted here.
  */
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Job, JobState, PasswordProtectOptions, ScanToPdfOptions, SplitOptions, WatermarkOptions, ToolId, ToolOptions } from '@/types';
+import { Job, JobState, PasswordProtectOptions, PdfToPptOptions, ScanToPdfOptions, SplitOptions, WatermarkOptions, ToolId, ToolOptions } from '@/types';
 import { apiJson, apiRequest, buildApiUrl } from '@/lib/apiClient';
 import { buildDownloadPath, buildJobPath } from '@/lib/toolApi';
 import { setGuestToken } from '@/lib/guestToken';
@@ -183,6 +183,9 @@ export const normalizeOptions = (toolId: ToolId, options: ToolOptions) => {
         opacity: opts.opacity,
       };
     }
+    // Editable text boxes unless the user picked exact-look image slides.
+    case 'pdf-to-ppt':
+      return { mode: (options as PdfToPptOptions).mode === 'image' ? 'image' : 'editable' };
     // Shares the backend pdf-to-image tool, which defaults to PNG.
     case 'pdf-to-jpg':
       return { format: 'jpg' };
@@ -192,7 +195,6 @@ export const normalizeOptions = (toolId: ToolId, options: ToolOptions) => {
     case 'pdf-to-word':
     case 'pdf-to-excel':
     case 'pdf-to-image':
-    case 'pdf-to-ppt':
     case 'pdf-to-html':
     case 'pdf-to-text':
     case 'pdf-to-pdfa':

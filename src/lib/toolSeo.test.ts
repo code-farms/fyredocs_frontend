@@ -79,9 +79,27 @@ describe('deep copy for previously "crawled – not indexed" tools', () => {
     expect(html).toContain(seo.tips![0].replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;'));
   });
 
-  it('shares only one boilerplate FAQ across tool pages', () => {
-    const generic = getToolSeo(tools.find((t) => t.id === 'pdf-to-odt')!, tools);
-    expect(generic.faqs).toHaveLength(1);
+  it('every tool page has its own use cases, tips and at least 3 tool-specific FAQs', () => {
+    for (const tool of tools) {
+      const seo = getToolSeo(tool, tools);
+      expect(seo.useCases?.length ?? 0, tool.id).toBeGreaterThanOrEqual(3);
+      expect(seo.tips?.length ?? 0, tool.id).toBeGreaterThanOrEqual(2);
+      expect(seo.faqs.length, tool.id).toBeGreaterThanOrEqual(4);
+      // Exactly one shared FAQ; the rest are tool-specific and unique to the page.
+      expect(seo.faqs.filter((f) => f.q.includes('free, and are my files safe')), tool.id).toHaveLength(1);
+    }
+  });
+
+  it('no two tool pages share a use case, tip or FAQ question', () => {
+    const seen = new Map<string, string>();
+    for (const tool of tools) {
+      const seo = getToolSeo(tool, tools);
+      const own = [...(seo.useCases ?? []), ...(seo.faqs.slice(0, -1).map((f) => f.q))];
+      for (const line of own) {
+        expect(seen.get(line), `${tool.id} repeats "${line}" from ${seen.get(line)}`).toBeUndefined();
+        seen.set(line, tool.id);
+      }
+    }
   });
 });
 

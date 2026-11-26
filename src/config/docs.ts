@@ -953,14 +953,14 @@ export const docs: DocEntry[] = [
   {
     slug: 'pdf-to-ppt',
     title: 'PDF to PowerPoint',
-    description: 'Convert PDF files to editable PowerPoint (.pptx) presentations.',
+    description: 'Convert PDF files to editable PowerPoint (.pptx) presentations, one slide per page.',
     category: 'tool-guide',
     toolCategory: 'CONVERT FROM PDF',
     toolId: 'pdf-to-ppt',
     sections: [
       {
         heading: 'What it does',
-        content: 'PDF to PowerPoint converts your PDF into an editable PowerPoint (.pptx) presentation. Each PDF page becomes one slide. Text and basic layout elements are converted to editable slide objects where possible. Complex graphics and unusual formatting may be rendered as background images rather than editable elements.',
+        content: 'PDF to PowerPoint turns your PDF into a PowerPoint (.pptx) presentation with one slide per page. Choose a slide type: Editable text (the default) converts text into text boxes you can edit, while Exact look places each page on its slide as an image, so the slides match the PDF exactly but the text cannot be edited.',
         type: 'paragraph',
       },
       {
@@ -975,7 +975,7 @@ export const docs: DocEntry[] = [
       },
       {
         heading: 'Conversion accuracy',
-        content: 'PDFs originally created from PowerPoint tend to convert back well. PDFs from other sources (scanned documents, complex design layouts) may produce slides with limited editability. Complex overlapping elements, custom fonts, and heavy graphics may not convert perfectly.',
+        content: 'In Editable text mode a PDF only stores positioned characters, not paragraphs, so expect roughly one text box per line and some font substitution — tidy the layout after converting. Scanned pages and Hindi or other Indian-language text are always converted as image slides, because editable import cannot keep them correct. Use Exact look when appearance matters more than editing.',
         type: 'warning',
       },
     ],
@@ -1704,7 +1704,7 @@ export const docs: DocEntry[] = [
       },
       {
         heading: 'Why does my converted file look different from the original?',
-        content: 'Conversions between formats (especially PDF to Word, PDF to PowerPoint) rely on heuristics to reconstruct editable elements from a fixed-layout format. Complex layouts with overlapping elements, custom fonts not available on the server, or heavy graphics may shift or change. Simple, text-heavy documents with standard layouts convert best. If exact fidelity is critical, try exporting directly from the originating application instead.',
+        content: 'Conversions between formats (especially PDF to Word and editable PDF to PowerPoint) rely on heuristics to reconstruct editable elements from a fixed-layout format. (PDF to PowerPoint also offers an Exact look mode, where each slide is an image of its page.) Complex layouts with overlapping elements, custom fonts not available on the server, or heavy graphics may shift or change. Simple, text-heavy documents with standard layouts convert best. If exact fidelity is critical, try exporting directly from the originating application instead.',
         type: 'paragraph',
       },
       {

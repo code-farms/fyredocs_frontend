@@ -180,6 +180,10 @@ export const PANEL_SCHEMAS: Record<OptionsPanelId, z.ZodTypeAny> = {
   }),
 
   'convert-info': z.object({}),
+
+  'pdf-to-ppt': z.object({
+    mode: z.enum(['editable', 'image']),
+  }),
 };
 
 export const PANEL_DEFAULTS: Record<OptionsPanelId, Record<string, unknown>> = {
@@ -224,6 +228,7 @@ export const PANEL_DEFAULTS: Record<OptionsPanelId, Record<string, unknown>> = {
     cleanAuto: false,
   },
   'convert-info': {},
+  'pdf-to-ppt': { mode: 'editable' },
 };
 
 /**

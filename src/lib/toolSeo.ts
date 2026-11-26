@@ -7,6 +7,8 @@
  * title, description, FAQ and JSON-LD.
  */
 
+import { TOOL_COPY } from './toolCopy';
+
 /** The registry fields SEO needs. Satisfied by ToolDefinition at runtime and by extractToolBases at build time. */
 export interface ToolSeoBase {
   id: string;
@@ -86,7 +88,19 @@ const commonFaqs = (tool: ToolSeoBase): Faq[] => {
 };
 
 /** Hand-written copy for the highest-volume searches. Missing fields fall back to the generated defaults. */
-const OVERRIDES: Record<string, Partial<ToolSeo>> = {
+/**
+ * Search metadata per tool: title, description, H1, intro, steps, related.
+ * "When to use", tips and FAQs live in toolCopy.ts — the type below keeps
+ * them out of here so each tool's copy has exactly one home.
+ */
+type ToolSeoOverride = Partial<
+  Pick<
+    ToolSeo,
+    'title' | 'metaDescription' | 'h1' | 'intro' | 'steps' | 'related'
+  >
+>;
+
+const OVERRIDES: Record<string, ToolSeoOverride> = {
   'pdf-to-word': {
     title: 'PDF to Word Converter – Free Online, No Signup | Fyredocs',
     metaDescription:
@@ -94,16 +108,6 @@ const OVERRIDES: Record<string, Partial<ToolSeo>> = {
     h1: 'PDF to Word Converter',
     intro:
       'Turn any PDF into an editable Microsoft Word document (.docx) in seconds. Fyredocs keeps paragraphs, tables, images and layout, so you can edit the text in Word, Google Docs or LibreOffice instead of retyping it.',
-    faqs: [
-      {
-        q: 'Will the Word file keep my formatting?',
-        a: 'Yes. Text, fonts, tables, images and page layout are kept as closely as possible. Complex magazine-style layouts may need small touch-ups.',
-      },
-      {
-        q: 'Can I convert a scanned PDF to Word?',
-        a: 'Scanned PDFs are images of text. Run them through OCR PDF first to add a text layer, then convert to Word to get editable text.',
-      },
-    ],
     related: ['word-to-pdf', 'ocr', 'pdf-to-excel', 'compress', 'edit-pdf'],
   },
   'word-to-pdf': {
@@ -128,16 +132,6 @@ const OVERRIDES: Record<string, Partial<ToolSeo>> = {
     h1: 'Compress PDF – Reduce PDF File Size',
     intro:
       'Make large PDFs small enough for email, WhatsApp or an online form upload. Fyredocs shrinks images and removes unneeded data while keeping text sharp and readable.',
-    faqs: [
-      {
-        q: 'How much smaller will my PDF get?',
-        a: 'It depends on the content. Scanned and image-heavy PDFs often shrink by 50–90%; text-only PDFs are usually small already and shrink less.',
-      },
-      {
-        q: 'Will compression reduce quality?',
-        a: 'Text and vector graphics stay sharp. Images are re-encoded at a lower resolution, which is usually not noticeable on screen.',
-      },
-    ],
     related: ['merge', 'pdf-to-word', 'image-to-pdf', 'split', 'pdf-to-jpg'],
   },
   merge: {
@@ -165,16 +159,6 @@ const OVERRIDES: Record<string, Partial<ToolSeo>> = {
     h1: 'PDF to JPG Converter',
     intro:
       'Turn every page of a PDF into a JPG image. JPGs open everywhere — WhatsApp, Instagram, email, online forms and photo galleries — so you can share a page without sending the whole PDF.',
-    faqs: [
-      {
-        q: 'What do I get for a PDF with several pages?',
-        a: 'Each page becomes its own JPG. A one-page PDF downloads as a single JPG; a multi-page PDF downloads as a ZIP file with one JPG per page, in order.',
-      },
-      {
-        q: 'Should I choose JPG or PNG?',
-        a: 'JPG files are smaller and ideal for sharing and uploading. Choose PDF to PNG when you need lossless quality for sharp text or diagrams.',
-      },
-    ],
     related: [
       'image-to-pdf',
       'pdf-to-image',
@@ -208,31 +192,6 @@ const OVERRIDES: Record<string, Partial<ToolSeo>> = {
     h1: 'PDF to Excel Converter',
     intro:
       'Pull tables out of PDF bank statements, invoices and reports into an editable Excel spreadsheet (.xlsx), so you can sort, filter and calculate instead of copying by hand.',
-    useCases: [
-      'Turning a bank statement PDF into a spreadsheet to total expenses, filter UPI payments or prepare an ITR.',
-      'Pulling GST invoice tables or price lists out of a PDF to calculate, sort or import into accounting software.',
-      'Converting result sheets, merit lists or attendance reports so you can search and sort by name or roll number.',
-      'Reusing tables from reports and research papers without retyping every row.',
-    ],
-    tips: [
-      'Works best on PDFs with real, selectable text. If you cannot select the text in your PDF, it is a scan — run OCR PDF first.',
-      'Unlock a password-protected statement before converting it.',
-      'Check totals and merged header cells after converting; complex layouts can split one column into two.',
-    ],
-    faqs: [
-      {
-        q: 'Does it work with scanned bank statements?',
-        a: 'Scanned pages are images, so there is no text to extract. Run the file through OCR PDF first to add a text layer, then convert it to Excel.',
-      },
-      {
-        q: 'Will each table go into its own sheet?',
-        a: 'Fyredocs detects the tables on each page and writes them into an .xlsx workbook you can open in Excel, Google Sheets or LibreOffice Calc. Review the layout before using the numbers.',
-      },
-      {
-        q: 'Can I convert several PDFs at once?',
-        a: 'Yes — guests can upload up to 5 files per job, and each produces its own Excel file.',
-      },
-    ],
     related: ['excel-to-pdf', 'pdf-to-word', 'ocr', 'pdf-to-text', 'compress'],
   },
   'excel-to-pdf': {
@@ -262,10 +221,10 @@ const OVERRIDES: Record<string, Partial<ToolSeo>> = {
   'pdf-to-ppt': {
     title: 'PDF to PowerPoint Converter – PDF to PPTX Free | Fyredocs',
     metaDescription:
-      'Convert PDF to PowerPoint (PPTX) online for free. Each page becomes an editable slide. No signup, no watermark, works on any device.',
+      'Convert PDF to editable PowerPoint (PPTX) online for free — text becomes text boxes you can edit, or keep the exact look as image slides. No signup.',
     h1: 'PDF to PowerPoint Converter',
     intro:
-      'Turn a PDF into a PowerPoint presentation (.pptx), one slide per page, so you can edit, rearrange and present it.',
+      'Turn a PDF into a PowerPoint presentation (.pptx), one slide per page. By default the text comes through as editable text boxes; switch to Exact look when the slides must match the PDF pixel for pixel.',
     related: [
       'powerpoint-to-pdf',
       'pdf-to-word',
@@ -281,31 +240,6 @@ const OVERRIDES: Record<string, Partial<ToolSeo>> = {
     h1: 'Unlock PDF – Remove Password',
     intro:
       'Remove the open password from a PDF you have the password for — bank statements, e-statements and payslips — so you do not have to type it every time.',
-    useCases: [
-      'Bank e-statements, credit card bills and mutual fund CAS that ask for a password every single time you open them.',
-      'Salary slips and Form 16 from your employer that you need to upload to a loan, rental or visa portal that rejects locked files.',
-      'Old PDFs you protected yourself years ago and now want to merge, compress or print without typing the password.',
-      'Sending a statement to your CA or family: unlock it, then add one password of your own with Protect PDF.',
-    ],
-    tips: [
-      'Passwords are case sensitive — many banks use part of your name in lowercase plus your date of birth; the statement email usually says the exact format.',
-      'You can unlock up to 5 files at a time as a guest if they share the same password.',
-      'After unlocking, keep the copy somewhere private: anyone who gets the file can now open it.',
-    ],
-    faqs: [
-      {
-        q: 'Can I unlock a PDF without knowing the password?',
-        a: 'No. Unlock PDF removes a password you enter; it does not guess or crack unknown passwords. If you have forgotten it, download a fresh copy from the source (for example your bank’s net banking) or ask them for the password format.',
-      },
-      {
-        q: 'What is the password for my bank statement PDF?',
-        a: 'It depends on the bank. Some publish it — for example HDFC downloaded statements use your Customer ID — while many state the format only in the statement email. Our guide on bank statement passwords lists the officially published formats.',
-      },
-      {
-        q: 'Will unlocking change the content of my PDF?',
-        a: 'No. Text, images, layout and page count stay exactly the same; only the password requirement is removed.',
-      },
-    ],
     related: [
       'password-protect',
       'compress',
@@ -321,31 +255,6 @@ const OVERRIDES: Record<string, Partial<ToolSeo>> = {
     h1: 'Protect PDF with a Password',
     intro:
       'Encrypt a PDF with a password so only the people you share it with can open it. Ideal for ID documents, contracts and financial records.',
-    useCases: [
-      'Emailing Aadhaar, PAN, passport or marksheet scans to an agent, college or employer.',
-      'Sharing salary slips, bank statements or ITR acknowledgements with a CA or loan officer.',
-      'Sending offer letters, invoices or contracts that only the recipient should open.',
-      'Keeping personal documents in cloud storage or on a shared family computer.',
-    ],
-    tips: [
-      'Choose AES-256 (the default) — use RC4-128 only if the reader has a very old PDF viewer.',
-      'Send the password through a different channel than the file, for example the PDF by email and the password by SMS or a call.',
-      'Use a long password that is not your date of birth or phone number, which are the first things people try.',
-    ],
-    faqs: [
-      {
-        q: 'Can I stop people from printing or copying my PDF?',
-        a: 'Yes. Along with the open password you can set permissions — allow or block printing, copying text and images, editing, page changes, and comments or form filling. Note that permissions are enforced by PDF viewers, so treat the open password as the real protection.',
-      },
-      {
-        q: 'Which encryption should I choose?',
-        a: 'AES-256 is the strongest and works in all modern viewers, so it is the default. AES-128 is also secure; RC4-128 exists only for very old software.',
-      },
-      {
-        q: 'What if I forget the password I set?',
-        a: 'There is no way to recover it from the protected file, so keep your original unprotected copy or store the password in a password manager.',
-      },
-    ],
     related: ['unlock-pdf', 'sign-pdf', 'watermark', 'compress', 'merge'],
   },
   'edit-pdf': {
@@ -414,31 +323,6 @@ const OVERRIDES: Record<string, Partial<ToolSeo>> = {
     h1: 'Extract Pages from PDF',
     intro:
       'Pull just the pages you need — a single certificate page, a chapter or a few slides — into a new PDF, without changing the original.',
-    useCases: [
-      'Saving just the marksheet page from a long result PDF to upload to a form.',
-      'Sending one chapter or a few slides to a classmate instead of the whole book or deck.',
-      'Pulling a single statement month, invoice or receipt out of a combined PDF.',
-      'Keeping only the signed pages of an agreement for your records.',
-    ],
-    tips: [
-      'Type pages and ranges separated by commas: 2,4,6-8 keeps pages 2, 4, 6, 7 and 8.',
-      'The original file is not changed — you download a new PDF with only the pages you chose.',
-      'Need every page as its own file instead? Use Split PDF.',
-    ],
-    faqs: [
-      {
-        q: 'How do I select which pages to extract?',
-        a: 'Enter page numbers and ranges separated by commas, for example 1,3,5-9. Pages are saved in the order of the original document.',
-      },
-      {
-        q: 'What is the difference between Extract Pages and Remove Pages?',
-        a: 'Extract Pages keeps only the pages you list; Remove Pages keeps everything except the pages you list. Use whichever list is shorter.',
-      },
-      {
-        q: 'Does extracting reduce the file size?',
-        a: 'Usually yes, because the new PDF contains fewer pages. For a further reduction, run it through Compress PDF.',
-      },
-    ],
     related: ['split', 'remove-pages', 'merge', 'reorder', 'compress'],
   },
   reorder: {
@@ -447,31 +331,6 @@ const OVERRIDES: Record<string, Partial<ToolSeo>> = {
     h1: 'Reorder PDF Pages',
     intro:
       'Fix pages that were scanned or merged in the wrong order. Drag the page thumbnails into place and download the corrected PDF.',
-    useCases: [
-      'Fixing scans where the back of a page came before the front, or pages were fed into the scanner out of order.',
-      'Putting certificates in the order a form asks for — for example Class 10 before Class 12 before graduation.',
-      'Moving a cover page, index or annexure to the right place after merging several PDFs.',
-      'Rearranging slides or chapters before printing or submitting.',
-    ],
-    tips: [
-      'Type the full new order as page numbers separated by commas — for example 3,1,2 puts page 3 first.',
-      'Use the prefill button to start from 1,2,3… and then just move the numbers you need.',
-      'Pages scanned sideways or upside down? Fix them with Rotate Pages after reordering.',
-    ],
-    faqs: [
-      {
-        q: 'How do I change the order of pages?',
-        a: 'Enter every page number in the new order, separated by commas — for example 2,1,3,4 swaps the first two pages. The tool shows how many pages your PDF has.',
-      },
-      {
-        q: 'Can I remove pages while reordering?',
-        a: 'Reorder keeps every page. To drop pages, use Remove Pages first, then reorder the rest.',
-      },
-      {
-        q: 'Will reordering affect quality?',
-        a: 'No. Pages are moved as they are; text, images and resolution do not change.',
-      },
-    ],
     related: ['rotate', 'merge', 'remove-pages', 'split', 'extract-pages'],
   },
   watermark: {
@@ -494,31 +353,6 @@ const OVERRIDES: Record<string, Partial<ToolSeo>> = {
     h1: 'Add Page Numbers to PDF',
     intro:
       'Number the pages of a report, thesis or assignment automatically. Pick where the numbers go and download the numbered PDF.',
-    useCases: [
-      'Project reports, dissertations and theses that must have page numbers before submission.',
-      'Combined application files — certificates, forms and annexures merged into one PDF — so the office can refer to “page 7”.',
-      'Legal and RTI documents, tender bids and annexure sets where every page must be numbered.',
-      'Printed notes and handouts that are easier to keep in order once numbered.',
-    ],
-    tips: [
-      'Merge all your files first, then add numbers once, so the numbering runs continuously.',
-      'Use “Page 1 of N” for official submissions — the reader can tell at a glance that no page is missing.',
-      'Numbering a second part of a document? Set the starting number to continue from where part one ended (for example start at 25).',
-    ],
-    faqs: [
-      {
-        q: 'Where can I place the page numbers?',
-        a: 'Six positions: top or bottom, each at the left, centre or right. Bottom centre is the most common choice for reports.',
-      },
-      {
-        q: 'Which number formats are available?',
-        a: 'Plain numbers (1, 2, 3), “Page 1”, “Page 1 of N”, and dashed (- 1 -). You can also choose the starting number and the font size.',
-      },
-      {
-        q: 'Will adding numbers cover my content?',
-        a: 'Numbers sit in the page margin. If your pages have content right at the edge, pick a different position or a smaller font size.',
-      },
-    ],
     related: ['merge', 'watermark', 'edit-pdf', 'reorder', 'compress'],
   },
   'repair-pdf': {
@@ -600,6 +434,7 @@ export const getToolSeo = (
   siblings: readonly ToolSeoBase[] = []
 ): ToolSeo => {
   const o = OVERRIDES[tool.id] ?? {};
+  const copy = TOOL_COPY[tool.id];
   const h1 = o.h1 ?? defaultH1(tool);
   const related =
     o.related ??
@@ -617,10 +452,9 @@ export const getToolSeo = (
       o.intro ??
       `${tool.description} online for free. No installation, no account and no watermark.`,
     steps: o.steps ?? defaultSteps(tool),
-    faqs: [...(o.faqs ?? []), ...commonFaqs(tool)],
+    faqs: [...(copy?.faqs ?? []), ...commonFaqs(tool)],
     related,
-    ...(o.useCases ? { useCases: o.useCases } : {}),
-    ...(o.tips ? { tips: o.tips } : {}),
+    ...(copy ? { useCases: copy.useCases, tips: copy.tips } : {}),
   };
 };
 
@@ -1029,9 +863,17 @@ const NAV_GROUP_TITLES: Record<string, string> = {
  * Static HTML for the home page: H1, intro, popular tools, then every tool
  * grouped by category, so each tool page is linked from the home page HTML.
  */
-export const renderHomeStaticHtml = (popular: readonly SeoLink[], tools: readonly ToolSeoBase[] = []): string => {
+export const renderHomeStaticHtml = (
+  popular: readonly SeoLink[],
+  tools: readonly ToolSeoBase[] = []
+): string => {
   const groups = Object.entries(NAV_GROUP_TITLES)
-    .map(([id, title]) => ({ title, links: tools.filter((t) => t.navGroup === id).map((t) => ({ name: t.name, route: t.route })) }))
+    .map(([id, title]) => ({
+      title,
+      links: tools
+        .filter((t) => t.navGroup === id)
+        .map((t) => ({ name: t.name, route: t.route })),
+    }))
     .filter((g) => g.links.length > 0);
   return [
     STATIC_STYLE,

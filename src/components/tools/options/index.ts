@@ -13,6 +13,7 @@ import { UnlockOptionsPanel } from './UnlockOptionsPanel';
 import { PageNumbersOptionsPanel } from './PageNumbersOptionsPanel';
 import { ScanOptionsPanel } from './ScanOptionsPanel';
 import { ConvertInfoPanel } from './ConvertInfoPanel';
+import { PptModeOptionsPanel } from './PptModeOptionsPanel';
 
 export type { OptionsPanelProps, OptionsFormValues } from './types';
 export { PANEL_SCHEMAS, PANEL_DEFAULTS, OCR_LANGUAGES } from './schemas';
@@ -31,4 +32,5 @@ export const OPTIONS_PANELS: Record<OptionsPanelId, ComponentType<OptionsPanelPr
   'page-numbers': PageNumbersOptionsPanel,
   scan: ScanOptionsPanel,
   'convert-info': ConvertInfoPanel,
+  'pdf-to-ppt': PptModeOptionsPanel,
 };

@@ -119,6 +119,9 @@ describe('ToolWorkbench — convert tools', () => {
     mockFiles = [makeUploadedFile()];
     renderWorkbench('pdf-to-ppt');
     expect(screen.getByText(/\.PPTX/i)).toBeInTheDocument();
+    // PDF → PowerPoint also offers the slide type, editable by default.
+    expect(screen.getByLabelText(/Editable text/i)).toBeChecked();
+    expect(screen.getByLabelText(/Exact look/i)).not.toBeChecked();
   });
 });
 

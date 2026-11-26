@@ -191,7 +191,6 @@ describe('normalizeOptions', () => {
       'pdf-to-word',
       'pdf-to-excel',
       'pdf-to-image',
-      'pdf-to-ppt',
       'pdf-to-html',
       'pdf-to-text',
       'pdf-to-pdfa',
@@ -205,6 +204,17 @@ describe('normalizeOptions', () => {
     it.each(noOptionTools)('%s returns undefined', (toolId) => {
       const result = normalizeOptions(toolId, {});
       expect(result).toBeUndefined();
+    });
+  });
+
+  describe('pdf-to-ppt', () => {
+    it('defaults to editable slides', () => {
+      expect(normalizeOptions('pdf-to-ppt', {} as never)).toEqual({ mode: 'editable' });
+      expect(normalizeOptions('pdf-to-ppt', { mode: 'editable' })).toEqual({ mode: 'editable' });
+    });
+
+    it('passes exact-look image mode through', () => {
+      expect(normalizeOptions('pdf-to-ppt', { mode: 'image' })).toEqual({ mode: 'image' });
     });
   });
 

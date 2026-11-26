@@ -245,7 +245,8 @@ export const TOOLS: Record<ToolId, ToolDefinition> = {
     navGroup: 'convert-from-pdf',
     keywords: ['pptx', 'slides', 'presentation'],
     outputFormat: 'pptx',
-    optionsPanel: 'convert-info',
+    optionsPanel: 'pdf-to-ppt',
+    defaultOptions: { mode: 'editable' },
   },
   'pdf-to-html': {
     id: 'pdf-to-html',

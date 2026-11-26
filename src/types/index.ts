@@ -81,7 +81,8 @@ export type OptionsPanelId =
   | 'unlock'
   | 'page-numbers'
   | 'scan'
-  | 'convert-info';
+  | 'convert-info'
+  | 'pdf-to-ppt';
 
 export interface ToolDefinition {
   id: ToolId;
@@ -294,6 +295,11 @@ export interface ReorderOptions {
   order: string; // Comma-separated page numbers, e.g., "3,1,2,5,4"
 }
 
+/** PDF → PowerPoint: editable text boxes (default) or exact-look image slides. */
+export interface PdfToPptOptions {
+  mode: 'editable' | 'image';
+}
+
 export interface ConvertOptions {
   format: 'docx' | 'xlsx' | 'png' | 'jpg' | 'pdf' | 'pptx' | 'html' | 'txt' | 'odt' | 'ods' | 'odp';
   quality?: 'low' | 'medium' | 'high';
@@ -356,6 +362,7 @@ export type ToolOptions =
   | RotateOptions
   | ReorderOptions
   | ConvertOptions
+  | PdfToPptOptions
   | RemovePagesOptions
   | ExtractPagesOptions
   | ScanToPdfOptions
