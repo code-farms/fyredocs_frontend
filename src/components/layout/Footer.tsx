@@ -4,6 +4,7 @@ import { openCookiePreferences } from '@/lib/consent';
 import { getPopularTools } from '@/config/tools';
 import { getToolsByNavGroup, toolNavName } from '@/config/navigation';
 import type { ToolDefinition } from '@/types';
+import logoUrl from '@/assets/brand/logo.webp';
 
 const MAX_TOOLS_PER_COLUMN = 6;
 
@@ -62,7 +63,7 @@ export const Footer = () => {
           {/* Brand */}
           <div className="sm:col-span-2">
             <Link to="/" className="mb-4 inline-flex items-center" aria-label="Fyredocs home">
-              <img src="/logo.png" alt="Fyredocs" className="h-12 w-auto" />
+              <img src={logoUrl} alt="Fyredocs" width={170} height={48} loading="lazy" decoding="async" className="h-12 w-auto" />
             </Link>
             <p className="mb-5 max-w-sm text-sm text-muted-foreground">
               Free online PDF tools to merge, split, compress, and convert your documents. Fast, secure, and easy to

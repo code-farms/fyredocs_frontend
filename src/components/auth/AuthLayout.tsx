@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { Check } from 'lucide-react';
 import { getAllTools } from '@/config/tools';
+import logoUrl from '@/assets/brand/logo.webp';
 
 const trustBullets = [
   'Files auto-delete — your plan controls retention',
@@ -36,7 +37,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
 
         {/* <div className="relative">
           <Link to="/" className="inline-flex items-center gap-2">
-            <img src="/logo.png" alt="Fyredocs" className="h-12 w-auto" />
+            <img src={logoUrl} alt="Fyredocs" width={170} height={48} className="h-12 w-auto" />
           </Link>
         </div> */}
 

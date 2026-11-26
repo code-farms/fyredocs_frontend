@@ -18,6 +18,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { useAuth } from '@/auth/useAuth';
 import { useCloseMobileSidebarOnNavigate } from '@/hooks/useCloseMobileSidebarOnNavigate';
 import { ADMIN_NAV_GROUPS, ADMIN_SECTIONS } from '@/components/admin/adminNav';
+import markUrl from '@/assets/brand/mark.webp';
 
 export function AdminSidebar() {
   useCloseMobileSidebarOnNavigate();
@@ -37,7 +38,7 @@ export function AdminSidebar() {
             <SidebarMenuButton size="lg" asChild>
               <Link to="/dashboard">
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center">
-                  <img src="/favicon.png" alt="" className="h-8 w-8 object-contain" aria-hidden />
+                  <img src={markUrl} alt="" width={32} height={32} className="h-8 w-8 object-contain" aria-hidden />
                 </div>
                 <div className="grid flex-1 text-left leading-tight">
                   <span className="truncate font-semibold">Fyredocs</span>

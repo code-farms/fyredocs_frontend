@@ -15,6 +15,7 @@ import { useAuth } from '@/auth/useAuth';
 import { ToolsMegaMenu } from './ToolsMegaMenu';
 import { MobileNav } from './MobileNav';
 import { signupEnabled } from '@/lib/features';
+import logoUrl from '@/assets/brand/logo.webp';
 
 const navLinkClass =
   'inline-flex h-10 items-center rounded-md px-4 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground';
@@ -27,7 +28,7 @@ export const Header = () => {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center gap-2">
         <Link to="/" className="flex shrink-0 items-center" aria-label="Fyredocs home">
-          <img src="/logo.png" alt="Fyredocs" className="h-16 w-auto" />
+          <img src={logoUrl} alt="Fyredocs" width={227} height={64} fetchPriority="high" className="h-16 w-auto" />
         </Link>
 
         <nav className="hidden items-center gap-1 lg:flex" aria-label="Main">
