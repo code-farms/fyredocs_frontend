@@ -82,7 +82,10 @@ function prerenderPublicPages(outDir: string, siteUrl: string, toolsSource: stri
     return body ? injectRoot(head, body) : head;
   };
 
-  write(SHELL_FILE, template);
+  // The shell serves app/admin routes, which show the sidebar mark rather than
+  // the header logo, so its logo preload would download unused and warn in the
+  // console. Prerendered public pages (written from `template` below) keep it.
+  write(SHELL_FILE, template.replace(/\s*<link rel="preload" as="image"[^>]*\/assets\/logo-[^>]*>/, ""));
 
   const home = STATIC_PAGE_SEO["/"];
   const popular = ["pdf-to-word", "pdf-to-jpg", "compress", "merge", "word-to-pdf", "image-to-pdf", "split", "pdf-to-excel"]

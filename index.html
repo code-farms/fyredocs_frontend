@@ -18,6 +18,9 @@
          only after the JS bundle runs; preloading starts the fetch with the HTML.
          Vite rewrites this to the hashed, immutable asset URL. -->
     <link rel="preload" as="image" type="image/webp" href="/src/assets/brand/logo.webp" fetchpriority="high" />
+    <!-- Classic (non-module) script: shows an "update your browser" banner on
+         browsers too old for the app bundle. See public/browser-check.js. -->
+    <script src="/browser-check.js" defer></script>
 
     <meta property="og:title" content="Fyredocs – Free Online PDF Tools" data-prerender />
     <meta property="og:description" content="Free online PDF tools: convert PDF to Word, JPG and Excel, merge, split, compress and sign PDFs. Fast, secure, no signup and no watermark." data-prerender />
