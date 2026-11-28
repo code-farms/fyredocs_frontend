@@ -3,6 +3,7 @@ import { renderHook, act, waitFor } from '@testing-library/react';
 import { useFileUpload } from '../useFileUpload';
 import { ToolDefinition } from '@/types';
 import { versionPath } from '@/lib/apiVersion';
+import { PLAN_LIMIT_FALLBACKS } from '@/config/planLimits';
 
 // ============================================================================
 // Test doubles: XHR fake (presigned part PUTs) + fetch mock (JSON endpoints)
@@ -573,7 +574,7 @@ describe('useFileUpload — multipart uploads', () => {
 
 describe('useFileUpload — plan limits', () => {
   const MB = 1024 * 1024;
-  const limits = { name: 'free', maxFileSizeMb: 50, maxFilesPerJob: 10, maxJobInputMb: 300, retentionDays: 7 };
+  const limits = { name: 'free', ...PLAN_LIMIT_FALLBACKS.free };
   const sized = (bytes: number, name: string) => {
     const file = new File(['x'], name, { type: 'application/pdf' });
     Object.defineProperty(file, 'size', { value: bytes });

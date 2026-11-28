@@ -300,7 +300,7 @@ export const TOOL_COPY: Record<string, ToolCopy> = {
     useCases: [
       'Making scanned books, notes or question papers searchable with Ctrl+F.',
       'Copying text out of a scanned letter, notice or certificate instead of retyping it.',
-      'Preparing a scanned PDF before converting it to Word or Excel.',
+      'Getting plain text out of a scanned PDF: run OCR, then PDF to Text.',
       'Making scanned Hindi documents searchable.',
     ],
     tips: [
@@ -499,7 +499,7 @@ export const TOOL_COPY: Record<string, ToolCopy> = {
       'Fixing typos in a document before printing it again.',
     ],
     tips: [
-      'Text-based PDFs convert best; for scans, run OCR PDF first so there is text to extract.',
+      'Text-based PDFs convert best. A scanned PDF comes out as page pictures in Word, not editable text.',
       'Unlock password-protected PDFs before converting.',
       'Check headers, footers and tables after converting — complex layouts may need small touch-ups.',
     ],
@@ -510,7 +510,7 @@ export const TOOL_COPY: Record<string, ToolCopy> = {
       },
       {
         q: 'Can I convert a scanned PDF to Word?',
-        a: 'Scanned PDFs are images of text. Run them through OCR PDF first to add a text layer, then convert to Word to get editable text.',
+        a: 'A scanned PDF is a picture of text, so Word gets the page as an image you cannot edit. To get the words, run OCR PDF, then PDF to Text, and paste the text into Word.',
       },
       {
         q: 'Can I edit the Word file in Google Docs or on my phone?',

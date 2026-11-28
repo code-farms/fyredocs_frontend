@@ -22,6 +22,7 @@ const LIMIT_ERROR_CODES: Record<UploadLimitReason, string> = {
   fileCount: 'MAX_FILES_EXCEEDED',
   fileSize: 'FILE_TOO_LARGE',
   jobTotal: 'JOB_TOO_LARGE',
+  pageCount: 'TOO_MANY_PAGES',
 };
 
 /**
