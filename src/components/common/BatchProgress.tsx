@@ -15,6 +15,7 @@ import {
   Combine,
 } from 'lucide-react';
 import { AnimatePresence, FadeIn, m } from '@/components/ui/animated';
+import { WAITING_ON_SERVER_LABEL, aheadInQueue, waitingLabel } from '@/lib/queueLabel';
 
 interface BatchProgressProps {
   batchJobs: BatchJob[];
@@ -25,6 +26,8 @@ interface BatchProgressProps {
   overallProgress: number;
   onCancel: () => void;
   onRetryFailed: () => void;
+  /** Retries one failed row (its file is uploaded again, then processed). */
+  onRetryRow?: (batchId: string) => void;
   onDownloadAll: () => void;
   onReset: () => void;
   /**
@@ -69,6 +72,7 @@ export const BatchProgress = ({
   overallProgress,
   onCancel,
   onRetryFailed,
+  onRetryRow,
   onDownloadAll,
   onReset,
   onMerge,
@@ -78,6 +82,9 @@ export const BatchProgress = ({
   const allComplete = completedCount + failedCount === totalCount && totalCount > 0;
   const hasFailures = failedCount > 0;
   const hasSuccesses = completedCount > 0;
+  // Jobs run one at a time: the row being processed is the user's position.
+  const runningIndex = batchJobs.findIndex((bj) => bj.status === 'processing');
+  const position = runningIndex >= 0 ? runningIndex + 1 : Math.min(completedCount + failedCount + 1, totalCount);
 
   return (
     <div className={cn('space-y-6', className)}>
@@ -90,7 +97,7 @@ export const BatchProgress = ({
           <div className="flex-1">
             <h3 className="font-semibold">
               {isProcessing
-                ? 'Processing files...'
+                ? `Processing ${position} of ${totalCount}…`
                 : allComplete
                 ? hasFailures
                   ? 'Batch completed with errors'
@@ -128,7 +135,7 @@ export const BatchProgress = ({
       <div className="space-y-2">
         <h4 className="font-medium text-sm text-muted-foreground mb-3">Files</h4>
         <div className="space-y-2 max-h-64 overflow-y-auto">
-          {batchJobs.map((batchJob) => (
+          {batchJobs.map((batchJob, index) => (
             <div
               key={batchJob.id}
               className={cn(
@@ -147,11 +154,28 @@ export const BatchProgress = ({
                     <Progress value={batchJob.job.progress.percentage} className="h-1" />
                   </div>
                 )}
+                {batchJob.note && <p className="text-xs text-primary mt-1">{batchJob.note}</p>}
+                {batchJob.status === 'pending' && isProcessing && !batchJob.note && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {batchJob.waitingOnServer ? WAITING_ON_SERVER_LABEL : waitingLabel(aheadInQueue(batchJobs.map((bj) => ({ name: bj.fileName, state: bj.status })), index))}
+                  </p>
+                )}
                 {batchJob.status === 'failed' && batchJob.error && (
                   <p className="text-xs text-destructive mt-1">{batchJob.error}</p>
                 )}
               </div>
               <StatusIcon status={batchJob.status} />
+              {batchJob.status === 'failed' && !isProcessing && onRetryRow && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 w-8 p-0"
+                  aria-label={`Retry ${batchJob.fileName}`}
+                  onClick={() => onRetryRow(batchJob.id)}
+                >
+                  <RefreshCw className="w-4 h-4" />
+                </Button>
+              )}
               <AnimatePresence>
                 {batchJob.status === 'completed' && batchJob.job?.result?.downloadUrl && (
                   <FadeIn motionKey={`dl-${batchJob.id}`}>

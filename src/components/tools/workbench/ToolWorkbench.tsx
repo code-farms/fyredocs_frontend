@@ -89,6 +89,7 @@ export const ToolWorkbench = ({ tool }: ToolWorkbenchProps) => {
     pauseUpload,
     resumeUpload,
     retryUpload: retryFileUpload,
+    reuploadFile,
   } = useFileUpload({
     tool,
     deferUpload: localMode,
@@ -114,6 +115,8 @@ export const ToolWorkbench = ({ tool }: ToolWorkbenchProps) => {
     startBatch,
     cancelBatch,
     resetBatch,
+    rerunJob,
+    markRow,
     isProcessing: isBatchProcessing,
     completedCount,
     failedCount,
@@ -370,6 +373,32 @@ export const ToolWorkbench = ({ tool }: ToolWorkbenchProps) => {
     setMergePlan(null);
   }, [resetJob, resetBatch, clearFiles, resetPageCount]);
 
+  // Retry failed batch rows one after another: the server ties an upload to
+  // its first job, so each file is uploaded again, then run as a new job.
+  // The other rows (and the files they came from) are left as they are.
+  const retryBatchRows = useCallback(
+    async (batchIds: string[]) => {
+      for (const id of batchIds) {
+        const row = batchJobs.find((bj) => bj.id === id);
+        if (!row?.localFileId) continue;
+        markRow(id, { status: 'pending', note: 'Uploading again…', error: undefined });
+        let serverFileId: string;
+        try {
+          serverFileId = await reuploadFile(row.localFileId);
+        } catch {
+          markRow(id, { status: 'failed', note: undefined, error: 'Upload failed — try again.' });
+          continue;
+        }
+        await rerunJob(id, serverFileId);
+      }
+    },
+    [batchJobs, markRow, reuploadFile, rerunJob]
+  );
+
+  const handleRetryFailedRows = useCallback(() => {
+    void retryBatchRows(batchJobs.filter((bj) => bj.status === 'failed').map((bj) => bj.id));
+  }, [batchJobs, retryBatchRows]);
+
   const handleDownloadAll = useCallback(() => {
     batchJobs
       .filter((bj) => bj.status === 'completed' && bj.job?.result?.downloadUrl)
@@ -457,7 +486,8 @@ export const ToolWorkbench = ({ tool }: ToolWorkbenchProps) => {
             totalCount={totalCount}
             overallProgress={overallProgress}
             onCancel={cancelBatch}
-            onRetryFailed={handleRetry}
+            onRetryFailed={handleRetryFailedRows}
+            onRetryRow={(id) => void retryBatchRows([id])}
             onDownloadAll={handleDownloadAll}
             onReset={handleStartOver}
             onMerge={mergeParts ? () => void handleMergeParts() : undefined}

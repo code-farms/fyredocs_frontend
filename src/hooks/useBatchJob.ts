@@ -23,8 +23,8 @@
  */
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { Job, ToolId, ToolOptions } from '@/types';
-import { apiJson, apiRequest, buildApiUrl } from '@/lib/apiClient';
-import { buildJobPath } from '@/lib/toolApi';
+import { ApiHttpError, apiJson, apiRequest, buildApiUrl } from '@/lib/apiClient';
+import { buildDownloadPath, buildJobPath } from '@/lib/toolApi';
 import { setGuestToken } from '@/lib/guestToken';
 import { ApiJob, mapApiJob, mapStatus } from '@/lib/jobMapper';
 import { track } from '@/lib/activity';
@@ -38,6 +38,12 @@ export interface BatchJob {
   job: Job | null;
   status: 'pending' | 'processing' | 'completed' | 'failed';
   error?: string;
+  /** True while the server reports another job of this user still running (JOB_IN_PROGRESS retry). */
+  waitingOnServer?: boolean;
+  /** The workbench file (useFileUpload id) this row was made from; used to upload it again on retry. */
+  localFileId?: string;
+  /** Short status shown under the name, e.g. "Uploading again…" during a retry. */
+  note?: string;
 }
 
 interface UseBatchJobOptions {
@@ -56,7 +62,10 @@ interface UseBatchJobReturn {
     options: ToolOptions
   ) => void;
   cancelBatch: () => void;
-  retryFailed: () => void;
+  /** Runs a row again with a freshly uploaded file; resolves when the row finishes. */
+  rerunJob: (batchId: string, serverFileId: string) => Promise<void>;
+  /** Patches one row (status / note / error), e.g. while its file uploads again. */
+  markRow: (batchId: string, patch: Partial<Pick<BatchJob, 'status' | 'note' | 'error'>>) => void;
   resetBatch: () => void;
   isProcessing: boolean;
   completedCount: number;
@@ -64,6 +73,18 @@ interface UseBatchJobReturn {
   totalCount: number;
   overallProgress: number;
 }
+
+/**
+ * The server runs one job per user at a time (job-service answers a second
+ * create with 429 JOB_IN_PROGRESS), so a batch submits its files one after
+ * another. A JOB_IN_PROGRESS (say, a job from another tab) is retried after a
+ * short wait instead of failing the file.
+ */
+const JOB_IN_PROGRESS = 'JOB_IN_PROGRESS';
+const BUSY_RETRY_MS = 3000;
+const BUSY_MAX_RETRIES = 100; // ~5 minutes of waiting for the other job
+
+const isTerminal = (status: BatchJob['status']) => status === 'completed' || status === 'failed';
 
 export const useBatchJob = ({
   pollingInterval = 2000,
@@ -74,6 +95,10 @@ export const useBatchJob = ({
 }: UseBatchJobOptions = {}): UseBatchJobReturn => {
   const [batchJobs, setBatchJobs] = useState<BatchJob[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const batchJobsRef = useRef<BatchJob[]>([]);
+  useEffect(() => {
+    batchJobsRef.current = batchJobs;
+  }, [batchJobs]);
   const pollingTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const sseConnectionsRef = useRef<Map<string, EventSource>>(new Map());
   const sseTerminalJobsRef = useRef<Set<string>>(new Set());
@@ -114,6 +139,23 @@ export const useBatchJob = ({
     files: Array<{ id: string; name: string; serverFileId: string }>;
     options: ToolOptions;
   } | null>(null);
+  // Sequential runs: each file's slot resolves its waiter when it turns
+  // completed/failed; bumping runIdRef stops a running loop (cancel/reset/new run).
+  const terminalWaitersRef = useRef<Map<string, () => void>>(new Map());
+  // Rows cancelled while their create request was in flight: when it returns,
+  // the job is not tracked, so the row stays cancelled (retry can run it again).
+  const cancelledRowsRef = useRef<Set<string>>(new Set());
+  const runIdRef = useRef(0);
+
+  useEffect(() => {
+    batchJobs.forEach((bj) => {
+      const resolve = terminalWaitersRef.current.get(bj.id);
+      if (resolve && isTerminal(bj.status)) {
+        terminalWaitersRef.current.delete(bj.id);
+        resolve();
+      }
+    });
+  }, [batchJobs]);
 
   const stopPolling = useCallback((batchId?: string) => {
     if (batchId) {
@@ -294,6 +336,17 @@ export const useBatchJob = ({
                     currentStep: state === 'completed' ? 'Completed' : state === 'failed' ? 'Failed' : 'Processing',
                   },
                   updatedAt: new Date(),
+                  // SSE carries no result; without a download URL the row's
+                  // download button, "Download All" and merge had nothing to use.
+                  result:
+                    state === 'completed'
+                      ? {
+                          downloadUrl: buildApiUrl(buildDownloadPath(toolId, prevJob.id)),
+                          fileName: prevJob.result?.fileName ?? 'output.pdf',
+                          fileSize: data.fileSize || prevJob.result?.fileSize || 0,
+                          expiresAt: prevJob.result?.expiresAt ?? new Date(),
+                        }
+                      : prevJob.result,
                 },
                 status: state === 'completed' ? 'completed' : state === 'failed' ? 'failed' : 'processing',
                 error: state === 'failed' ? 'The job failed to complete.' : bj.error,
@@ -375,16 +428,30 @@ export const useBatchJob = ({
           payload.options = options as Record<string, unknown>;
         }
 
-        const apiResponse = await apiJson<{ data: ApiJob & { guestToken?: string } }>(buildJobPath(toolId), {
-          method: 'POST',
-          body: JSON.stringify(payload),
-        });
+        const create = () =>
+          apiJson<{ data: ApiJob & { guestToken?: string } }>(buildJobPath(toolId), {
+            method: 'POST',
+            body: JSON.stringify(payload),
+          });
+        let apiResponse: Awaited<ReturnType<typeof create>> | undefined;
+        for (let attempt = 0; !apiResponse; attempt++) {
+          try {
+            apiResponse = await create();
+          } catch (err) {
+            const busy = err instanceof ApiHttpError && err.code === JOB_IN_PROGRESS;
+            if (!busy || attempt >= BUSY_MAX_RETRIES) throw err;
+            setBatchJobs((prev) => prev.map((bj) => (bj.id === batchId ? { ...bj, waitingOnServer: true } : bj)));
+            await new Promise((resolve) => setTimeout(resolve, BUSY_RETRY_MS));
+            if (cancelledRowsRef.current.has(batchId)) return;
+          }
+        }
 
         if (apiResponse.data.guestToken) {
           setGuestToken(apiResponse.data.guestToken);
         }
 
         const mappedJob = mapApiJob(apiResponse.data, toolId, [serverFileId], options);
+        if (cancelledRowsRef.current.has(batchId)) return;
         track({
           eventType: ACTIVITY_EVENTS.jobStarted,
           status: 'started',
@@ -396,7 +463,7 @@ export const useBatchJob = ({
         setBatchJobs((prev) =>
           prev.map((bj) =>
             bj.id === batchId
-              ? { ...bj, job: mappedJob, status: 'processing' }
+              ? { ...bj, job: mappedJob, status: 'processing', waitingOnServer: false }
               : bj
           )
         );
@@ -426,6 +493,24 @@ export const useBatchJob = ({
     [checkAllComplete, startSSEForJob]
   );
 
+  /** Submits the files one at a time: the next job is created only after the previous one finished. */
+  const runSequentially = useCallback(
+    async (
+      items: Array<{ batchId: string; file: { id: string; serverFileId: string } }>,
+      toolId: ToolId,
+      options: ToolOptions
+    ) => {
+      const runId = ++runIdRef.current;
+      for (const { batchId, file } of items) {
+        if (runIdRef.current !== runId) return;
+        const done = new Promise<void>((resolve) => terminalWaitersRef.current.set(batchId, resolve));
+        await processFile(batchId, toolId, file.id, file.serverFileId, options);
+        await done;
+      }
+    },
+    [processFile]
+  );
+
   const startBatch = useCallback(
     (
       toolId: ToolId,
@@ -439,6 +524,7 @@ export const useBatchJob = ({
         id: `batch-${file.id}-${Date.now()}`,
         fileName: file.name,
         fileId: file.serverFileId,
+        localFileId: file.id,
         job: null,
         status: 'pending',
       }));
@@ -446,16 +532,20 @@ export const useBatchJob = ({
       setBatchJobs(initialBatchJobs);
       setIsProcessing(true);
 
-      // Start processing each file
-      initialBatchJobs.forEach((batchJob, index) => {
-        const file = files[index];
-        void processFile(batchJob.id, toolId, file.id, file.serverFileId, options);
-      });
+      void runSequentially(
+        initialBatchJobs.map((batchJob, index) => ({ batchId: batchJob.id, file: files[index] })),
+        toolId,
+        options
+      );
     },
-    [processFile, stopPolling]
+    [runSequentially, stopPolling]
   );
 
   const cancelBatch = useCallback(() => {
+    runIdRef.current++;
+    batchJobsRef.current
+      .filter((bj) => bj.status === 'processing' || bj.status === 'pending')
+      .forEach((bj) => cancelledRowsRef.current.add(bj.id));
     stopPolling();
     setBatchJobs((prev) =>
       prev.map((bj) =>
@@ -467,38 +557,43 @@ export const useBatchJob = ({
     setIsProcessing(false);
   }, [stopPolling]);
 
-  const retryFailed = useCallback(() => {
-    if (!lastBatchRef.current) return;
+  const markRow = useCallback((batchId: string, patch: Partial<Pick<BatchJob, 'status' | 'note' | 'error'>>) => {
+    setBatchJobs((prev) => prev.map((bj) => (bj.id === batchId ? { ...bj, ...patch } : bj)));
+    if (patch.status === 'pending') {
+      cancelledRowsRef.current.delete(batchId);
+      setIsProcessing(true);
+    }
+  }, []);
 
-    const { toolId, files, options } = lastBatchRef.current;
-    const failedFiles = batchJobs
-      .filter((bj) => bj.status === 'failed')
-      .map((bj) => files.find((f) => f.serverFileId === bj.fileId))
-      .filter((f): f is NonNullable<typeof f> => Boolean(f));
-
-    if (failedFiles.length === 0) return;
-
-    setBatchJobs((prev) =>
-      prev.map((bj) =>
-        bj.status === 'failed'
-          ? { ...bj, status: 'pending', error: undefined, job: null }
-          : bj
-      )
-    );
-
-    setIsProcessing(true);
-
-    batchJobs
-      .filter((bj) => bj.status === 'failed')
-      .forEach((bj) => {
-        const file = files.find((f) => f.serverFileId === bj.fileId);
-        if (file) {
-          void processFile(bj.id, toolId, file.id, file.serverFileId, options);
-        }
-      });
-  }, [batchJobs, processFile]);
+  const rerunJob = useCallback(
+    async (batchId: string, serverFileId: string) => {
+      const last = lastBatchRef.current;
+      if (!last) return;
+      const row = batchJobsRef.current.find((bj) => bj.id === batchId);
+      if (!row) return;
+      const file = { id: row.localFileId ?? batchId, serverFileId };
+      cancelledRowsRef.current.delete(batchId);
+      lastBatchRef.current = {
+        ...last,
+        files: last.files.map((f) => (f.id === row.localFileId ? { ...f, serverFileId } : f)),
+      };
+      setBatchJobs((prev) =>
+        prev.map((bj) =>
+          bj.id === batchId
+            ? { ...bj, fileId: serverFileId, status: 'pending', job: null, error: undefined, note: undefined }
+            : bj
+        )
+      );
+      setIsProcessing(true);
+      await runSequentially([{ batchId, file }], last.toolId, last.options);
+    },
+    [runSequentially]
+  );
 
   const resetBatch = useCallback(() => {
+    runIdRef.current++;
+    terminalWaitersRef.current.clear();
+    cancelledRowsRef.current.clear();
     stopPolling();
     setBatchJobs([]);
     setIsProcessing(false);
@@ -530,7 +625,8 @@ export const useBatchJob = ({
     batchJobs,
     startBatch,
     cancelBatch,
-    retryFailed,
+    rerunJob,
+    markRow,
     resetBatch,
     isProcessing,
     completedCount,

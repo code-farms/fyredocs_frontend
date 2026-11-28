@@ -59,6 +59,7 @@ const CODE_SENTENCES: Record<string, string> = {
   UPSTREAM_UNAVAILABLE: 'A processing service is unreachable right now — try again in a moment.',
   SERVICE_UNAVAILABLE: 'A processing service is unreachable right now — try again in a moment.',
   RATE_LIMIT_EXCEEDED: "You're going a bit fast — wait a moment and try again.",
+  JOB_IN_PROGRESS: 'Your previous file is still processing — start this one when it finishes.',
   AUTH_UNAUTHORIZED: 'You need to sign in again to do that.',
   UNAUTHORIZED: 'You need to sign in again to do that.',
   AUTH_TOKEN_EXPIRED: 'Your session expired — sign in again.',

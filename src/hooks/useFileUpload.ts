@@ -157,6 +157,12 @@ interface UseFileUploadReturn {
   pauseUpload: (fileId: string) => void;
   resumeUpload: (fileId: string) => void;
   retryUpload: (fileId: string) => void;
+  /**
+   * Uploads an already-uploaded file again as a fresh session and resolves with
+   * the new server upload id (rejects if that upload fails). Used to retry a
+   * failed job: the server ties each upload to the first job made from it.
+   */
+  reuploadFile: (fileId: string) => Promise<string>;
   cancelUpload: (fileId: string) => void;
   updateProgress: (fileId: string, loaded: number, total: number) => void;
   setUploadState: (fileId: string, state: UploadState, error?: string) => void;
@@ -672,6 +678,47 @@ export const useFileUpload = ({
     );
   }, []);
 
+  // reuploadFile waiters, settled by the effect below when the file finishes.
+  const reuploadWaiters = useRef<Map<string, { resolve: (id: string) => void; reject: (e: Error) => void }>>(new Map());
+
+  useEffect(() => {
+    reuploadWaiters.current.forEach((waiter, fileId) => {
+      const file = files.find((f) => f.id === fileId);
+      if (!file) {
+        reuploadWaiters.current.delete(fileId);
+        waiter.reject(new Error('File was removed'));
+      } else if (file.state === 'completed' && file.serverFileId) {
+        reuploadWaiters.current.delete(fileId);
+        waiter.resolve(file.serverFileId);
+      } else if (file.state === 'failed') {
+        reuploadWaiters.current.delete(fileId);
+        waiter.reject(new Error(file.error || 'Upload failed'));
+      }
+    });
+  }, [files]);
+
+  const reuploadFile = useCallback(
+    (fileId: string) =>
+      new Promise<string>((resolve, reject) => {
+        reuploadWaiters.current.set(fileId, { resolve, reject });
+        setFiles((prev) =>
+          prev.map((f) =>
+            f.id === fileId
+              ? {
+                  ...f,
+                  state: 'idle' as UploadState,
+                  error: undefined,
+                  progress: { loaded: 0, total: f.file.size, percentage: 0 },
+                  parts: createParts(f.file.size, PROVISIONAL_PART_SIZE),
+                  serverFileId: undefined,
+                }
+              : f
+          )
+        );
+      }),
+    []
+  );
+
   const cancelUpload = useCallback((fileId: string) => {
     removeFile(fileId);
   }, [removeFile]);
@@ -702,13 +749,15 @@ export const useFileUpload = ({
     files.length <= effectiveLimits(limits, tool).maxFiles &&
     (deferUpload || files.every((f) => f.state === 'completed' && Boolean(f.serverFileId)));
 
+  // One file uploads at a time, in list order (its parts still go 4 at a time).
+  // Besides keeping one user's requests in sequence, this makes the first init
+  // of a fresh guest run alone: parallel first inits would each mint a different
+  // guest_token cookie, and completing all but the last upload would then 404.
   useEffect(() => {
     if (deferUpload) return;
-    files
-      .filter((file) => file.state === 'idle')
-      .forEach((file) => {
-        startUpload(file.id);
-      });
+    if (files.some((file) => file.state === 'uploading')) return;
+    const next = files.find((file) => file.state === 'idle');
+    if (next) startUpload(next.id);
   }, [files, startUpload, deferUpload]);
 
   return {
@@ -721,6 +770,7 @@ export const useFileUpload = ({
     pauseUpload,
     resumeUpload,
     retryUpload,
+    reuploadFile,
     cancelUpload,
     updateProgress,
     setUploadState,

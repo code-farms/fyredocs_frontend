@@ -17,6 +17,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { GripVertical } from 'lucide-react';
 import { FileUpload } from '@/types';
 import { FileItem } from './FileItem';
+import { aheadInQueue } from '@/lib/queueLabel';
 import { cn } from '@/lib/utils';
 import { AnimatePresence, AnimatedListItem } from '@/components/ui/animated';
 
@@ -43,7 +44,14 @@ interface SortableFileItemProps {
   onPause?: () => void;
   onResume?: () => void;
   onReorder: (fromIndex: number, toIndex: number) => void;
+  waitingAfter?: string;
 }
+
+/** Name of the file an idle row waits behind, while another file uploads. */
+const waitingAfterFor = (files: FileUpload[], index: number): string | undefined =>
+  files[index].state === 'idle' && files.some((f) => f.state === 'uploading')
+    ? aheadInQueue(files.map((f) => ({ name: f.file.name, state: f.state })), index)
+    : undefined;
 
 const SortableFileItem = ({
   file,
@@ -55,6 +63,7 @@ const SortableFileItem = ({
   onPause,
   onResume,
   onReorder,
+  waitingAfter,
 }: SortableFileItemProps) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: file.id,
@@ -76,6 +85,7 @@ const SortableFileItem = ({
         onResume={onResume}
         showReorder={total > 1}
         showOrdinal={showOrdinals}
+        waitingAfter={waitingAfter}
         onMoveUp={index > 0 ? () => onReorder(index, index - 1) : undefined}
         onMoveDown={index < total - 1 ? () => onReorder(index, index + 1) : undefined}
         dragHandle={
@@ -147,6 +157,7 @@ export const FileList = ({
                 onPause={onPause ? () => onPause(file.id) : undefined}
                 onResume={onResume ? () => onResume(file.id) : undefined}
                 onReorder={onReorder}
+                waitingAfter={waitingAfterFor(files, index)}
               />
             ))}
           </SortableContext>
@@ -168,6 +179,7 @@ export const FileList = ({
               onPause={onPause ? () => onPause(file.id) : undefined}
               onResume={onResume ? () => onResume(file.id) : undefined}
               showOrdinal={showOrdinals}
+              waitingAfter={waitingAfterFor(files, index)}
             />
           </AnimatedListItem>
         ))}

@@ -11,7 +11,9 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
+  Clock,
 } from 'lucide-react';
+import { waitingLabel } from '@/lib/queueLabel';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
@@ -30,6 +32,8 @@ interface FileItemProps {
   dragHandle?: ReactNode;
   /** Show a 1-based position badge (e.g. merge order). */
   showOrdinal?: boolean;
+  /** Set on an idle file queued behind another upload: the name of the file ahead. */
+  waitingAfter?: string;
 }
 
 const formatFileSize = (bytes: number): string => {
@@ -43,7 +47,7 @@ const formatFileSize = (bytes: number): string => {
 };
 
 const stateIcons = {
-  idle: null,
+  idle: <Clock className="w-4 h-4 text-muted-foreground" aria-hidden />,
   uploading: <Loader2 className="w-4 h-4 animate-spin text-primary" aria-hidden />,
   paused: <Pause className="w-4 h-4 text-muted-foreground" aria-hidden />,
   completed: <CheckCircle2 className="w-4 h-4 text-success" aria-hidden />,
@@ -62,6 +66,7 @@ export const FileItem = ({
   showReorder = false,
   dragHandle,
   showOrdinal = false,
+  waitingAfter,
 }: FileItemProps) => {
   const { state, progress, error } = file;
 
@@ -130,6 +135,13 @@ export const FileItem = ({
               <span className="text-xs text-primary font-medium">
                 Uploading · {progress.percentage}%
               </span>
+            </>
+          )}
+
+          {state === 'idle' && waitingAfter !== undefined && (
+            <>
+              <span className="text-xs text-muted-foreground">•</span>
+              <span className="text-xs text-muted-foreground font-medium">{waitingLabel(waitingAfter)}</span>
             </>
           )}
 

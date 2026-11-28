@@ -258,6 +258,44 @@ afterEach(() => {
 // ============================================================================
 
 describe('useFileUpload — multipart uploads', () => {
+  it('reuploadFile uploads a finished file again as a new session', async () => {
+    const { result } = renderUploadHook();
+    act(() => {
+      result.current.addFiles([makeFile(4, 'part.pdf')]);
+    });
+    await waitFor(() => expect(result.current.files[0].state).toBe('completed'));
+    const firstId = result.current.files[0].serverFileId;
+
+    let next: Promise<string> | undefined;
+    act(() => {
+      next = result.current.reuploadFile(result.current.files[0].id);
+    });
+    const newId = await next!;
+    expect(newId).not.toBe(firstId);
+    expect(fetchCalls.filter((c) => c.url.endsWith(`${UPLOAD}/init`))).toHaveLength(2);
+  });
+
+  it('uploads several files one at a time, in order', async () => {
+    xhrAutoRespond = false;
+    const { result } = renderUploadHook();
+    act(() => {
+      result.current.addFiles([makeFile(4, 'a.pdf'), makeFile(4, 'b.pdf')]);
+    });
+
+    await waitFor(() => expect(FakeXMLHttpRequest.instances).toHaveLength(1));
+    const inits = () => fetchCalls.filter((c) => c.url.endsWith(`${UPLOAD}/init`));
+    expect(inits().map((c) => (c.body as { fileName: string }).fileName)).toEqual(['a.pdf']);
+
+    act(() => defaultRespond(FakeXMLHttpRequest.instances[0]));
+    await waitFor(() => expect(result.current.files[0].state).toBe('completed'));
+    await waitFor(() => expect(inits()).toHaveLength(2));
+    expect((inits()[1].body as { fileName: string }).fileName).toBe('b.pdf');
+
+    await waitFor(() => expect(FakeXMLHttpRequest.instances).toHaveLength(2));
+    act(() => defaultRespond(FakeXMLHttpRequest.instances[1]));
+    await waitFor(() => expect(result.current.files.every((f) => f.state === 'completed')).toBe(true));
+  });
+
   it('uploads a multi-part file: init → parallel PUTs → complete with all etags', async () => {
     const { result } = renderUploadHook();
 
