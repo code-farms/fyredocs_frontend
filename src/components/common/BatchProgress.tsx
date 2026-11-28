@@ -12,6 +12,7 @@ import {
   X,
   FileText,
   Package,
+  Combine,
 } from 'lucide-react';
 import { AnimatePresence, FadeIn, m } from '@/components/ui/animated';
 
@@ -26,6 +27,12 @@ interface BatchProgressProps {
   onRetryFailed: () => void;
   onDownloadAll: () => void;
   onReset: () => void;
+  /**
+   * Set when the batch is the parts of one split scan: shows "Download as one
+   * PDF" once every part completed. `merging` disables it while it runs.
+   */
+  onMerge?: () => void;
+  merging?: boolean;
   className?: string;
 }
 
@@ -64,6 +71,8 @@ export const BatchProgress = ({
   onRetryFailed,
   onDownloadAll,
   onReset,
+  onMerge,
+  merging = false,
   className,
 }: BatchProgressProps) => {
   const allComplete = completedCount + failedCount === totalCount && totalCount > 0;
@@ -175,6 +184,12 @@ export const BatchProgress = ({
           </FadeIn>
         ) : (
           <FadeIn motionKey="complete-actions">
+            {onMerge && allComplete && !hasFailures && (
+              <Button className="mb-3 w-full" onClick={onMerge} disabled={merging}>
+                {merging ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Combine className="w-4 h-4 mr-2" />}
+                {merging ? 'Merging…' : 'Download as one PDF'}
+              </Button>
+            )}
             <div className="flex gap-3">
               {hasFailures && (
                 <Button variant="outline" className="flex-1" onClick={onRetryFailed}>
@@ -183,7 +198,7 @@ export const BatchProgress = ({
                 </Button>
               )}
               {hasSuccesses && (
-                <Button className="flex-1" onClick={onDownloadAll}>
+                <Button className="flex-1" variant={onMerge ? 'outline' : 'default'} onClick={onDownloadAll}>
                   <Download className="w-4 h-4 mr-2" />
                   Download All ({completedCount})
                 </Button>

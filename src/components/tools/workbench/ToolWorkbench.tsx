@@ -26,6 +26,8 @@ import { ProcessingStage } from './ProcessingStage';
 import { ResultStage } from './ResultStage';
 import { StickyActionBar } from './StickyActionBar';
 import { UpgradeDialog } from './UpgradeDialog';
+import { OcrPageLimitDialog, type OcrPageLimitState } from './OcrPageLimitDialog';
+import { fileStem, firstPagesForOcr, mergeOcrParts, planOcrParts, splitBlocker, splitForOcr } from '@/lib/ocrSplit';
 import { useGlobalDropTarget } from './useGlobalDropTarget';
 import { buildOptions } from './buildOptions';
 
@@ -68,6 +70,12 @@ export const ToolWorkbench = ({ tool }: ToolWorkbenchProps) => {
     open: false,
   });
   const limits = useUploadLimits();
+  // OCR scan over the plan's page limit: offer split / first pages (lib/ocrSplit.ts).
+  const [ocrLimit, setOcrLimit] = useState<OcrPageLimitState | null>(null);
+  const [ocrSplitting, setOcrSplitting] = useState(false);
+  // Set after a split with "merge" ticked: the part files to join after OCR.
+  const [mergePlan, setMergePlan] = useState<{ stem: string; partNames: string[] } | null>(null);
+  const [merging, setMerging] = useState(false);
   const dropzoneRef = useRef<FileDropzoneHandle>(null);
 
   const {
@@ -167,9 +175,23 @@ export const ToolWorkbench = ({ tool }: ToolWorkbenchProps) => {
       // PDFs pass (the worker still checks).
       if (tool.planPageLimit === 'ocr' && limits.maxOcrPages > 0) {
         for (const file of selectedFiles) {
-          const check = checkOcrPages(await countPdfPages(file), limits, file.name);
+          const pages = await countPdfPages(file);
+          const check = checkOcrPages(pages, limits, file.name);
           if (check.ok === false) {
-            handleLimitExceeded(check.reason, check.message);
+            // One scan: offer to split it or keep the first pages. Several
+            // files at once keep the plain limit dialog.
+            if (selectedFiles.length === 1 && pages !== null) {
+              const parts = planOcrParts(pages, limits.maxOcrPages);
+              setOcrLimit({
+                file,
+                pages,
+                limit: limits.maxOcrPages,
+                parts,
+                splitBlocked: splitBlocker(file, parts, limits, tool, files.length),
+              });
+            } else {
+              handleLimitExceeded(check.reason, check.message);
+            }
             return;
           }
         }
@@ -179,8 +201,50 @@ export const ToolWorkbench = ({ tool }: ToolWorkbenchProps) => {
         void readPageCount(selectedFiles[0]);
       }
     },
-    [addFiles, handleLimitExceeded, limits, readPageCount, tool.needsPageCount, tool.planPageLimit]
+    [addFiles, files.length, handleLimitExceeded, limits, readPageCount, tool]
   );
+
+  const handleOcrSplit = useCallback(
+    async (merge: boolean) => {
+      if (!ocrLimit) return;
+      setOcrSplitting(true);
+      try {
+        const parts = await splitForOcr(ocrLimit.file, ocrLimit.parts);
+        const result = addFiles(parts);
+        if (result.isValid) {
+          setBatchMode(true);
+          setMergePlan(merge ? { stem: fileStem(ocrLimit.file.name), partNames: parts.map((p) => p.name) } : null);
+          toast.success(`Split into ${parts.length} parts — choose the language and start OCR.`);
+        }
+        setOcrLimit(null);
+      } catch (err) {
+        toast.error(err instanceof LocalToolError ? err.message : "Couldn't split this PDF in the browser.");
+      } finally {
+        setOcrSplitting(false);
+      }
+    },
+    [addFiles, ocrLimit]
+  );
+
+  const handleOcrFirstPages = useCallback(async () => {
+    if (!ocrLimit) return;
+    setOcrSplitting(true);
+    try {
+      addFiles([await firstPagesForOcr(ocrLimit.file, ocrLimit.limit)]);
+      setOcrLimit(null);
+    } catch (err) {
+      toast.error(err instanceof LocalToolError ? err.message : "Couldn't trim this PDF in the browser.");
+    } finally {
+      setOcrSplitting(false);
+    }
+  }, [addFiles, ocrLimit]);
+
+  const handleOcrSeePlans = useCallback(() => {
+    if (!ocrLimit) return;
+    const { file, pages, limit } = ocrLimit;
+    setOcrLimit(null);
+    handleLimitExceeded('pageCount', `"${file.name}" has ${pages} pages, over the ${limit}-page OCR limit for your plan.`);
+  }, [handleLimitExceeded, ocrLimit]);
 
   // The page-wide drop bypasses PlanAwareFileDropzone, so it runs the same
   // limit check itself before anything reaches addFiles / the uploader.
@@ -290,6 +354,7 @@ export const ToolWorkbench = ({ tool }: ToolWorkbenchProps) => {
     clearFiles();
     resetPageCount();
     setBatchMode(false);
+    setMergePlan(null);
     form.reset(defaultValues);
   }, [clearFiles, defaultValues, form, resetBatch, resetJob, resetPageCount]);
 
@@ -302,6 +367,7 @@ export const ToolWorkbench = ({ tool }: ToolWorkbenchProps) => {
     resetBatch();
     clearFiles();
     resetPageCount();
+    setMergePlan(null);
   }, [resetJob, resetBatch, clearFiles, resetPageCount]);
 
   const handleDownloadAll = useCallback(() => {
@@ -311,6 +377,43 @@ export const ToolWorkbench = ({ tool }: ToolWorkbenchProps) => {
         window.open(bj.job?.result?.downloadUrl, '_blank');
       });
   }, [batchJobs]);
+
+  // Joins the OCR'd parts of a split scan, in part order, in the browser.
+  const mergeParts = useMemo(() => {
+    if (!mergePlan) return null;
+    const byName = new Map(batchJobs.map((bj) => [bj.fileName, bj]));
+    const parts = mergePlan.partNames.map((name) => byName.get(name));
+    return parts.every((bj) => bj?.status === 'completed' && bj.job?.result?.downloadUrl) ? parts : null;
+  }, [batchJobs, mergePlan]);
+
+  const handleMergeParts = useCallback(async () => {
+    if (!mergePlan || !mergeParts) return;
+    setMerging(true);
+    try {
+      const files = await Promise.all(
+        mergeParts.map(async (bj, i) => {
+          const res = await fetch(bj!.job!.result!.downloadUrl!, { credentials: 'include' });
+          if (!res.ok) throw new Error(`download ${res.status}`);
+          return new File([await res.blob()], mergePlan.partNames[i], { type: 'application/pdf' });
+        })
+      );
+      const merged = await mergeOcrParts(files, mergePlan.stem);
+      const url = URL.createObjectURL(merged);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = merged.name;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+    } catch (err) {
+      toast.error(
+        err instanceof LocalToolError
+          ? `${err.message} Download the parts separately instead.`
+          : "Couldn't merge the parts — download them separately instead."
+      );
+    } finally {
+      setMerging(false);
+    }
+  }, [mergeParts, mergePlan]);
 
   const actionLabel =
     tool.actionLabel?.(files.length) ??
@@ -357,6 +460,8 @@ export const ToolWorkbench = ({ tool }: ToolWorkbenchProps) => {
             onRetryFailed={handleRetry}
             onDownloadAll={handleDownloadAll}
             onReset={handleStartOver}
+            onMerge={mergeParts ? () => void handleMergeParts() : undefined}
+            merging={merging}
           />
         ) : job ? (
           stage === 'processing' ? (
@@ -420,6 +525,15 @@ export const ToolWorkbench = ({ tool }: ToolWorkbenchProps) => {
           </div>
         </div>
       )}
+
+      <OcrPageLimitDialog
+        state={ocrLimit}
+        busy={ocrSplitting}
+        onClose={() => setOcrLimit(null)}
+        onSplit={(merge) => void handleOcrSplit(merge)}
+        onFirstPages={() => void handleOcrFirstPages()}
+        onSeePlans={handleOcrSeePlans}
+      />
 
       <UpgradeDialog
         open={upgradeDialog.open}

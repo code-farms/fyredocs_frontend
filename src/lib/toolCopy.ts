@@ -318,6 +318,10 @@ export const TOOL_COPY: Record<string, ToolCopy> = {
         a: 'English, Hindi, and English + Hindi for documents that mix both.',
       },
       {
+        q: 'My scan has more pages than my plan allows in one OCR run. What now?',
+        a: `Fyredocs offers to split it for you: the scan is cut into parts that each fit your plan (guests: ${PLAN.guest.maxOcrPages} pages per run) right in your browser, all parts are OCR'd together, and you can download them merged back into one searchable PDF. You can also OCR just the first pages.`,
+      },
+      {
         q: 'Can I OCR several PDFs at once?',
         a: `Yes — OCR supports batch processing, up to ${PLAN.guest.maxFilesPerJob} files per job for guests.`,
       },
